@@ -38,7 +38,7 @@ endif()
 FetchContent_Declare(
   raylib
   URL https://github.com/raysan5/raylib/archive/refs/tags/${ENIGMA_RAYLIB_VERSION}.tar.gz
-  URL_HASH SHA256=9f5bc3e414d591b64da3e0c0a2569f170ef537dbb46caa363f88fca475ab5cfc
+  URL_HASH SHA256=98f049b9ea2a9c40a14e4e543eeea1a7ec3090ebdcd329c4ca2cf98bc9793482
 )
 FetchContent_MakeAvailable(raylib)
 target_compile_definitions(raylib PRIVATE SUPPORT_FILEFORMAT_JPG)
