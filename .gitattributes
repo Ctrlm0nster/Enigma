@@ -1,0 +1,52 @@
+# Set default behaviour to normalize line endings to LF on commit
+* text=auto eol=lf
+
+# C++ Source and headers
+*.cpp text eol=lf diff=cpp
+*.hpp text eol=lf diff=cpp
+*.c text eol=lf diff=cpp
+*.h text eol=lf diff=cpp
+
+# Build system, config files & LSPs
+CMakeLists.txt text eol=lf
+Doxyfile text eol=lf
+*.cmake text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.css text eol=lf
+.clangd text eol=lf
+
+# Documentation and text
+*.md text eol=lf
+*.txt text eol=lf
+LICENSE text eol=lf
+NOTICE text eol=lf
+
+# Scripts
+*.sh text eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets (fonts, images, media)
+*.ttf binary
+*.otf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.wav binary
+*.ogg binary
+*.mp3 binary
+
+# GitHub Linguist / repository statistics
+libs/** linguist-vendored
+assets/** linguist-vendored
+
+# Export ignore for archive tarballs
+.gitignore export-ignore
+.gitattributes export-ignore
+.cache/** export-ignore
+test/** export-ignore
+docs/** export-ignore

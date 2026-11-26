@@ -1,3 +1,12 @@
+/**
+ * @file EnigmaMachine.hpp
+ * @brief Complete Enigma machine simulator and signal trace engine.
+ *
+ * Assembles plugboard, rotor bank, and reflector into a coherent circuit,
+ * executes pre-encryption stepping (including double-stepping anomaly),
+ * and produces telemetry traces for UI visualization.
+ */
+
 #pragma once
 #include "Plugboard.hpp"
 #include "Reflector.hpp"
@@ -5,42 +14,105 @@
 #include <string>
 #include <vector>
 
+/**
+ * @struct SignalTrace
+ * @brief Captures the intermediate electrical state at each stage of encryption.
+ *
+ * Used by the UI lampboard and signal view to illustrate how a single keypress
+ * travels through every component in real-time.
+ */
 struct SignalTrace {
-  char input{};
-  char plugboardForward{};
-  std::vector<char> rotorForward;
-  char reflected{};
-  std::vector<char> rotorBackward;
-  char output{};
+  char input{};                      ///< Original uppercase key pressed.
+  char plugboardForward{};           ///< Character exiting plugboard entering rotors.
+  std::vector<char> rotorForward;    ///< Characters exiting each rotor (fast to slow).
+  char reflected{};                  ///< Character exiting reflector.
+  std::vector<char> rotorBackward;   ///< Characters exiting each rotor in reverse (slow to fast).
+  char output{};                     ///< Final illuminated lampboard letter.
 };
 
+/**
+ * @class EnigmaMachine
+ * @brief Complete Enigma machine simulation chassis.
+ *
+ * Encapsulates the entire encryption loop:
+ *
+ * @mermaid
+ * flowchart LR
+ *     Key[Key In] --> Stepping[Rotor Stepping]
+ *     Stepping --> PB1[Plugboard Forward]
+ *     PB1 --> R3F[Rotor III Fast]
+ *     R3F --> R2F[Rotor II Middle]
+ *     R2F --> R1F[Rotor I Slow]
+ *     R1F --> Ref[Reflector B]
+ *     Ref --> R1B[Rotor I Reverse]
+ *     R1B --> R2B[Rotor II Reverse]
+ *     R2B --> R3B[Rotor III Reverse]
+ *     R3B --> PB2[Plugboard Return]
+ *     PB2 --> Lamp[Lampboard Out]
+ * @endmermaid
+ */
 class EnigmaMachine {
 private:
-  Plugboard plugboard;
-  std::vector<Rotor> rotors;
-  Reflector reflector;
+  Plugboard plugboard;         ///< Active plugboard.
+  std::vector<Rotor> rotors;   ///< Ordered rotors (index 0 = slow/left, back = fast/right).
+  Reflector reflector;         ///< Fixed reflector.
 
-  // Mechanically advances the necessary rotors prior to processing a keystroke.
+  /**
+   * @brief Advances rotor positions according to Enigma mechanical pawls.
+   *
+   * Accurately replicates the historical double-stepping anomaly when the middle
+   * rotor is at its notch position.
+   */
   void stepRotors();
 
 public:
-  // Assembles the Enigma Machine with a plugboard, sequence of rotors, and a
-  // reflector.
+  /**
+   * @brief Assembles an Enigma machine with plugboard, rotor sequence, and reflector.
+   *
+   * @param p Configured plugboard instance.
+   * @param r Vector of rotors ordered left-to-right (index 0 is leftmost/slowest).
+   * @param ref Configured reflector instance.
+   */
   EnigmaMachine(Plugboard p, std::vector<Rotor> r, Reflector ref);
 
-  // Returns a read-only reference to the machine's rotors (useful for UI
-  // inspection).
+  /**
+   * @brief Returns a read-only reference to the rotor vector.
+   *
+   * @return Const reference to internal rotor vector.
+   */
   const std::vector<Rotor> &getRotors() const;
 
-  // Returns a read-only reference to the active plugboard.
+  /**
+   * @brief Returns a read-only reference to the plugboard.
+   *
+   * @return Const reference to internal plugboard.
+   */
   const Plugboard &getPlugboard() const;
 
-  // Processes a single character through the entire Enigma encryption circuit.
+  /**
+   * @brief Encrypts or decrypts a single character.
+   *
+   * If @p c is an alphabetic character, advances rotors and scrambles the signal.
+   * Non-alphabetic characters are returned unmodified without advancing rotors.
+   *
+   * @param c Plaintext or ciphertext character.
+   * @return Encrypted or decrypted character.
+   */
   char processChar(char c);
 
-  // Processes one character and records every stage for UI visualization.
+  /**
+   * @brief Encrypts a character while recording each intermediate stage.
+   *
+   * @param c Character to encrypt.
+   * @return SignalTrace containing states at each physical stage.
+   */
   SignalTrace processCharWithTrace(char c);
 
-  // Processes a full string character-by-character.
+  /**
+   * @brief Processes an entire string sequentially.
+   *
+   * @param input Input text.
+   * @return Processed output string.
+   */
   std::string processString(const std::string &input);
 };

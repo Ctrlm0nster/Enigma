@@ -1,5 +1,60 @@
+# Build directories and outputs
 build/
-.cache/
+build-*/
+cmake-build-*/
+out/
+bin/
+Testing/
+docs/
+
+# Compiler and linker outputs
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+*.exe
+*.out
+*.dSYM/
+
+# Build system generated files
+*.ninja_log
+.ninja_deps
+CMakeUserPresets.json
 compile_commands.json
+
+# Cache and temporary files
+.cache/
+*.log
+*.tmp
+*.bak
+
+# Testing & Coverage
+*.gcda
+*.gcno
+*.gcov
+
+# Dependencies and vendored sources
 /libs/raylib/
 /libs/Catch2/
+_deps/
+
+# Tooling, environment & LSPs
+.clangd/
+.mise.local.toml
+.env
+.env.*.local
+
+# IDEs and Text Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.user
+
+# Operating System files
+.DS_Store
+Thumbs.db
