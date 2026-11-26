@@ -1,0 +1,23 @@
+[tools]
+cmake = "4.5.1"
+ninja = "1.13.2"
+
+[tasks.configure]
+description = "Configure a Release build with CMake and Ninja"
+run = "cmake -S . -B build/mise -G Ninja -DCMAKE_BUILD_TYPE=Release"
+
+[tasks.build]
+description = "Build Enigma and its tests"
+depends = ["configure"]
+run = "cmake --build build/mise"
+
+[tasks.test]
+description = "Build and run the Enigma tests"
+depends = ["build"]
+run = "ctest --test-dir build/mise --output-on-failure"
+
+[tasks.run]
+description = "Build and launch Enigma Workbench"
+depends = ["build"]
+run = "./build/mise/Enigma"
+run_windows = ".\\build\\mise\\Enigma.exe"
