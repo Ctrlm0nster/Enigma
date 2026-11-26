@@ -1,28 +1,15 @@
-# Plugboard (Steckerbrett) {#plugboard_guide}
+# Plugboard {#plugboard_guide}
 
-Detailed documentation for the plugboard component.
+The plugboard swaps letters before the signal enters the rotors and again
+when it returns to the lamp. A lead between **A** and **Z** sends **A** to
+**Z** and **Z** to **A**. An unused socket passes its letter through.
 
-The `Plugboard` (or Steckerbrett) was a component located at the front of the historical Enigma machine. It allowed the operator to swap pairs of letters before the signal entered the rotors, and again after it exited the rotors, adding significant cryptographic complexity.
+## Workbench and core {#plugboard_implementation}
 
-```mermaid
-graph TD
-    subgraph Unwired [Unwired Letter Sockets]
-        B[B] --> B
-        C[C] --> C
-    end
-    subgraph Wired [Patched Wire Pair]
-        A[A] <-->|Patch Lead| Z[Z]
-    end
-```
+The Workbench starts with **A–Z** and **B–Y** and supports up to ten leads.
+See the socket controls in the @ref workbench_guide "Workbench guide".
 
-## Mathematical Properties
-- **Involution**: Swapping twice returns the original input: \f$P(P(x)) = x\f$.
-- **Capacity**: Supports up to 10 patch leads (20 letters), leaving 6 letters self-steckered.
-
-## Class Overview
-The `Plugboard` class maintains a `std::array<int, 26>` called `wiring` which stores the mapping of each character index.
-
-## Methods
-- `Plugboard()`: Initializes a blank plugboard where every letter maps to itself.
-- `void addWire(int a, int b)`: Connects a physical wire between two letter indices.
-- `int swap(int input) const`: Processes an electrical signal passing through the plugboard.
+The @ref Plugboard class starts with no pairs. It stores a 26-entry array
+that maps each contact directly to its paired contact or to itself. Each
+call to `addWire` requires two different, unused contacts and fills in both
+directions of the pair.

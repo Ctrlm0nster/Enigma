@@ -43,6 +43,7 @@ NOTICE text eol=lf
 # GitHub Linguist / repository statistics
 libs/** linguist-vendored
 assets/** linguist-vendored
+documentation/theme/** linguist-vendored
 
 # Export ignore for archive tarballs
 .gitignore export-ignore

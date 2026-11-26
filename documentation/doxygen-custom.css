@@ -1,113 +1,154 @@
-/* Enigma Workbench Modern Doxygen Theme Enhancements */
-
-:root {
-  --primary-color: #2b5c46;
-  --primary-dark: #1b382b;
-  --accent-gold: #d4a34b;
-  --code-bg: #1e2421;
+html {
+    --primary-color: #86570e;
+    --primary-dark-color: #604008;
+    --primary-light-color: #d9a452;
+    --page-background-color: #fffdfa;
+    --page-foreground-color: #292824;
+    --side-nav-background: #f6f3ee;
+    --side-nav-arrow-opacity: 0.6;
+    --separator-color: #ddd8d0;
+    --enigma-muted: #625c51;
+    --enigma-surface: #f8f5ef;
 }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  line-height: 1.6;
-}
-
-/* Header & Navigation Bar */
-#titlearea {
-  border-bottom: 2px solid var(--accent-gold);
-  padding: 12px 18px;
-  background: linear-gradient(135deg, #18221c 0%, #222d26 100%);
+html.dark-mode {
+    --primary-color: #efb45f;
+    --primary-light-color: #ffd18b;
+    --primary-dark-color: #c69247;
+    --on-primary-color: #241b10;
+    --page-background-color: #1d1e20;
+    --page-foreground-color: #eeeae4;
+    --side-nav-background: #242527;
+    --separator-color: #403c36;
+    --enigma-muted: #b7b0a5;
+    --enigma-surface: #252628;
 }
 
 #projectname {
-  font-size: 170% !important;
-  font-weight: 700;
-  color: #f8f6e9 !important;
-  letter-spacing: -0.02em;
+    font-size: 1.35rem;
+    font-weight: 650;
 }
 
 #projectbrief {
-  color: #c7d3ca !important;
-  font-size: 95% !important;
-  margin-top: 4px;
+    color: var(--enigma-muted);
 }
 
-/* Sidebar Treeview */
-#nav-tree {
-  background-color: #19201c;
-  font-size: 13.5px;
+/* Keep the search field and theme control on one line. */
+#main-menu > #searchBoxPos2 {
+    align-items: center;
+    display: flex;
 }
 
-#nav-tree .selected {
-  background: #2b5c46 !important;
-  color: #ffffff !important;
-  font-weight: 600;
+@media screen and (min-width: 768px) {
+    #main-nav {
+        box-sizing: border-box;
+        padding-right: var(--spacing-medium);
+        width: 100%;
+    }
+
+    #main-menu > #searchBoxPos2 {
+        float: none;
+        width: 100%;
+    }
+
+    #splitbar {
+        display: none;
+    }
 }
 
-/* Page content cards */
-div.header {
-  background: #fbfbfa;
-  border-bottom: 1px solid #e1e6e2;
-  margin-bottom: 20px;
+#searchBoxPos2 #MSearchBox {
+    flex: 1;
+    min-width: 0;
 }
 
-html.dark-mode div.header {
-  background: #18201c;
-  border-bottom: 1px solid #2d3b32;
+#searchBoxPos2 #MSearchField {
+    width: calc(100% - 48px);
 }
 
-/* Mermaid Diagrams Container */
+#searchBoxPos2 doxygen-awesome-dark-mode-toggle {
+    flex: 0 0 var(--searchbar-height);
+}
+
+doxygen-awesome-dark-mode-toggle:focus-visible {
+    outline: 2px solid var(--primary-color);
+}
+
+.docs-lead {
+    color: var(--enigma-muted);
+    display: block;
+    font-size: 1.13rem;
+    max-width: 65ch;
+}
+
+.docs-start {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin: 1.35rem 0 1.7rem;
+}
+
+.docs-start a {
+    border: 1px solid var(--separator-color);
+    border-radius: 6px;
+    color: var(--page-foreground-color);
+    display: inline-block;
+    font-weight: 600;
+    padding: 0.4rem 0.85rem;
+}
+
+.docs-start a:first-child {
+    --link-color: var(--on-primary-color);
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: var(--on-primary-color);
+}
+
+.docs-start a:hover {
+    border-color: var(--primary-color);
+    text-decoration: underline;
+}
+
+.docs-start a:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 3px;
+}
+
+.workbench-preview {
+    margin: 1.5rem 0 2rem;
+    max-width: 860px;
+}
+
+.workbench-preview img {
+    border: 1px solid var(--separator-color);
+    border-radius: 8px;
+    box-sizing: border-box;
+    display: block;
+    height: auto;
+    max-width: 100%;
+}
+
+.workbench-preview figcaption {
+    color: var(--enigma-muted);
+    font-size: 0.88rem;
+    margin-top: 0.45rem;
+}
+
 .mermaidgraph {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin: 24px 0;
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid #dbe2dd;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  overflow-x: auto;
+    background: var(--enigma-surface);
+    border: 1px solid var(--separator-color);
+    border-radius: 8px;
+    margin: 1.5rem 0;
+    overflow-x: auto;
+    padding: 1rem;
 }
 
-html.dark-mode .mermaidgraph {
-  background: #1c2520;
-  border: 1px solid #2e3c33;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+.mermaidgraph pre {
+    margin: 0;
 }
 
-.mermaid {
-  text-align: center;
-}
-
-/* Code blocks & Pre elements */
-pre.fragment {
-  border-radius: 6px;
-  padding: 12px 16px;
-  border: 1px solid #2d3830;
-}
-
-/* Tables */
-table.markdownTable {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 20px 0;
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-table.markdownTable th {
-  background-color: #2b5c46;
-  color: #ffffff;
-  padding: 10px 14px;
-  text-align: left;
-}
-
-table.markdownTable td {
-  padding: 8px 14px;
-  border-bottom: 1px solid #e2e8e4;
-}
-
-html.dark-mode table.markdownTable td {
-  border-bottom: 1px solid #2e3c33;
+.mermaidgraph svg {
+    display: block;
+    height: auto;
+    margin: auto;
+    max-width: 100%;
 }

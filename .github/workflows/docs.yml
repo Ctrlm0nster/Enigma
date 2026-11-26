@@ -27,7 +27,15 @@ jobs:
       - name: Install Doxygen and Graphviz
         run: |
           sudo apt-get update
-          sudo apt-get install -y doxygen graphviz
+          sudo apt-get install -y graphviz
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 3 --silent --show-error \
+            --output doxygen-1.18.0.linux.bin.tar.gz \
+            https://github.com/doxygen/doxygen/releases/download/Release_1_18_0/doxygen-1.18.0.linux.bin.tar.gz
+          echo '14fa81bdc34171edb5f1f02b1d60e74802f0439b77fa44e592565d517d72df90  doxygen-1.18.0.linux.bin.tar.gz' | sha256sum --check
+          tar -xzf doxygen-1.18.0.linux.bin.tar.gz
+          sudo install -m 0755 doxygen-1.18.0/bin/doxygen /usr/local/bin/doxygen
+          doxygen --version
 
       - name: Generate Doxygen Documentation
         run: doxygen Doxyfile

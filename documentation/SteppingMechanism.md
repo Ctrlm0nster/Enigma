@@ -1,64 +1,32 @@
-# Rotor Stepping & The Double-Stepping Anomaly {#stepping_mechanism}
+# Rotor stepping {#stepping_mechanism}
 
-Mechanics of pawls, ratchet wheels, and the historical double-stepping anomaly.
+@tableofcontents
 
-## Mechanical Stepping Principles
+## Before the signal travels {#step_rule}
 
-In the Enigma I machine (three-rotor military model):
-- Rotors are numbered from left to right: Rotor 0 (slow), Rotor 1 (middle), Rotor 2 (fast).
-- A set of three mechanical pawls levers forward on *every* single keypress.
-- The rightmost rotor (Rotor 2) has ratchet teeth directly exposed to the right pawl, so it **always advances by 1 step** on every keystroke.
-- The middle and left rotors only step when the pawl drops into the turnover notch of the rotor to its right.
+1. The rightmost rotor is marked to advance on every letter.
+2. Each rotor to the right of the first rotor is checked at its current
+   window letter. If it is at its turnover notch, mark it and its immediate
+   left neighbor to advance.
+3. Advance each marked rotor one position. The electrical signal passes
+   through the rotors at these new positions.
 
-```mermaid
-stateDiagram-v2
-    [*] --> CheckNotches
-    CheckNotches --> RightSteps: Always on keystroke
-    CheckNotches --> MiddleSteps: If Right is at notch OR Middle is at notch
-    CheckNotches --> LeftSteps: If Middle is at notch
-    RightSteps --> [*]
-    MiddleSteps --> [*]
-    LeftSteps --> [*]
-```
+The simulator applies this rule to all active rotors. A rotor can be marked
+by two conditions during the same keypress and still advances one position.
 
-## The Double-Stepping Anomaly
+## Double stepping {#double_step}
 
-Due to the historical mechanical design of the three pawls swinging together on a single lever:
-1. When Rotor 2 reaches its notch, the middle pawl drops into the notch, causing Rotor 1 to step on the next press.
-2. When Rotor 1 is at *its own notch*, its ratchet tooth is engaged by the left pawl to step Rotor 0.
-3. Crucially, the middle pawl also engages Rotor 1's own ratchet wheel again, causing **Rotor 1 to step twice in consecutive keystrokes**!
+Start with rotors I, II, III showing **A D V** from left to right. Rotor III
+is at its turnover notch **V**, so it carries Rotor II from **D** to **E**.
+Rotor II is now at its own notch and moves again on the next press, carrying
+Rotor I with it.
 
-This quirk causes the middle rotor period to be \f$25 \times 26 = 650\f$ steps instead of \f$26 \times 26 = 676\f$ steps.
+| Press | Window letters | Rotors that move |
+| --- | --- | --- |
+| Start | **A D V** | |
+| First | **A E W** | II, III |
+| Second | **B F X** | I, II, III |
 
-```mermaid
-flowchart TD
-    Start([Keypress]) --> StepCheck{Check Rotor Positions}
-    StepCheck -->|Fast Rotor| S2[Rotor 2 Steps]
-    StepCheck -->|Rotor 2 at Notch| S1A[Rotor 1 Steps]
-    StepCheck -->|Rotor 1 at Notch| S1B[Rotor 1 Steps Again: Double-Stepping!]
-    StepCheck -->|Rotor 1 at Notch| S0[Rotor 0 Steps]
-    S2 --> End([Ready for Electrical Signal])
-    S1A --> End
-    S1B --> End
-    S0 --> End
-```
-
-## Implementation in EnigmaCore
-
-In `EnigmaMachine::stepRotors()`, this behavior is explicitly modeled:
-
-```cpp
-void EnigmaMachine::stepRotors() {
-  const bool rightAtNotch = rotors[2].atNotch();
-  const bool middleAtNotch = rotors[1].atNotch();
-
-  if (middleAtNotch) {
-    rotors[0].step();
-    rotors[1].step(); // Double stepping!
-  } else if (rightAtNotch) {
-    rotors[1].step();
-  }
-
-  rotors[2].step(); // Fast rotor always steps
-}
-```
+This is the double step. Rotor II advances on two successive keypresses.
+Try starting positions **A D V** in the Workbench and watch the **Live**
+column as you type two letters. @ref rotor_guide "Turnover positions for I–V"

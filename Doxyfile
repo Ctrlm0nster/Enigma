@@ -2,7 +2,7 @@
 
 PROJECT_NAME           = "Enigma Workbench"
 PROJECT_NUMBER         = "1.0.0"
-PROJECT_BRIEF          = "Interactive historical Enigma machine simulator built with C++20 and Raylib"
+PROJECT_BRIEF          = "Enigma simulator and C++ reference"
 OUTPUT_DIRECTORY       = docs
 CREATE_SUBDIRS         = NO
 OUTPUT_LANGUAGE        = English
@@ -32,12 +32,9 @@ SORT_MEMBERS_CTORS_1ST = YES
 SORT_GROUP_NAMES       = YES
 
 # Input paths
-INPUT                  = documentation/Mainpage.md \
-                         include \
+INPUT                  = include \
                          src \
-                         documentation \
-                         README.md \
-                         assets/ATTRIBUTION.md
+                         documentation
 INPUT_ENCODING         = UTF-8
 FILE_PATTERNS          = *.hpp \
                          *.cpp \
@@ -47,7 +44,8 @@ FILE_PATTERNS          = *.hpp \
 RECURSIVE              = YES
 EXCLUDE                = build \
                          libs \
-                         _deps
+                         _deps \
+                         documentation/theme
 EXCLUDE_PATTERNS       = */build/* \
                          */libs/* \
                          */_deps/*
@@ -66,21 +64,28 @@ SOURCE_TOOLTIPS        = YES
 GENERATE_HTML          = YES
 HTML_OUTPUT            = html
 HTML_FILE_EXTENSION    = .html
-HTML_COLORSTYLE        = TOGGLE
+HTML_COLORSTYLE        = LIGHT
 HTML_HEADER            = documentation/header.html
 HTML_DYNAMIC_MENUS     = YES
 HTML_DYNAMIC_SECTIONS  = YES
-HTML_EXTRA_STYLESHEET  = documentation/doxygen-custom.css
+HTML_EXTRA_STYLESHEET  = documentation/theme/doxygen-awesome.css \
+                         documentation/theme/doxygen-awesome-sidebar-only.css \
+                         documentation/doxygen-custom.css
+HTML_EXTRA_FILES       = documentation/theme/doxygen-awesome-darkmode-toggle.js \
+                         documentation/theme/doxygen-awesome-paragraph-link.js \
+                         documentation/theme/doxygen-awesome-interactive-toc.js \
+                         documentation/theme/LICENSE \
+                         documentation/images/workbench.png
 DISABLE_INDEX          = NO
 GENERATE_TREEVIEW      = YES
+PAGE_OUTLINE_PANEL     = NO
 FULL_SIDEBAR           = NO
-TREEVIEW_WIDTH         = 250
+TREEVIEW_WIDTH         = 335
 FORMULA_FONTSIZE       = 12
 SEARCHENGINE           = YES
 
 # Mermaid Support
 MERMAID_RENDER_MODE    = CLIENT_SIDE
-MERMAID_JS_URL         = https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs
 
 # Disable LaTeX by default for lightweight generation
 GENERATE_LATEX         = NO
