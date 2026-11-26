@@ -32,8 +32,17 @@ jobs:
       - name: Generate Doxygen Documentation
         run: doxygen Doxyfile
 
+      - name: Upload Documentation Artifact (Always Available)
+        uses: actions/upload-artifact@v4
+        with:
+          name: doxygen-html
+          path: docs/html/
+          retention-days: 30
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
