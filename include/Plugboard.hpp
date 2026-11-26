@@ -14,8 +14,8 @@
  * @class Plugboard
  * @brief Models the Enigma plugboard (Steckerbrett).
  *
- * Holds reciprocal pair wiring for up to 10 connections (20 letters),
- * leaving unwired letters connected straight through (identity mapping).
+ * Holds reciprocal pair wiring for up to 13 connections. The Workbench
+ * limits operators to 10 connections. Unwired letters map to themselves.
  *
  * @mermaid
  * graph LR

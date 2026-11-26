@@ -3,29 +3,42 @@
 #include "workbench/Session.hpp"
 #include "workbench/View.hpp"
 
+#include <cstdio>
+#include <cstdlib>
+
 int main() {
   using namespace workbench;
 
   SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT);
-  InitWindow(1280, 820, "Enigma Workbench");
+  InitWindow(1320, 840, "Enigma Workbench");
+  if (!IsWindowReady()) {
+    std::fputs("Enigma Workbench could not open a graphics window.\n", stderr);
+    return EXIT_FAILURE;
+  }
   SetWindowMinSize(minimumWidth, minimumHeight);
+  SetExitKey(KEY_NULL);
   SetTargetFPS(60);
 
-  const Fonts fonts = loadFonts();
+  const Assets assets = loadAssets();
   Session session;
-  Status status;
-  while (!WindowShouldClose()) {
+  InterfaceState state;
+  while (!WindowShouldClose() &&
+         (state.photoOpen || !IsKeyPressed(KEY_ESCAPE))) {
     const int width = GetScreenWidth();
     const int height = GetScreenHeight();
-    const Layout layout = makeLayout(width, height);
-    handleInput(session, layout, status);
+    const auto rotorCount = session.rotorCount();
+    Layout layout = makeLayout(width, height, rotorCount);
+    handleInput(session, layout, state);
+    if (session.rotorCount() != rotorCount) {
+      layout = makeLayout(width, height, session.rotorCount());
+    }
 
     BeginDrawing();
-    drawWorkbench(session, layout, fonts, status.current(), width, height);
+    drawWorkbench(session, layout, assets, state);
     EndDrawing();
   }
 
-  unloadFonts(fonts);
+  unloadAssets(assets);
   CloseWindow();
   return 0;
 }

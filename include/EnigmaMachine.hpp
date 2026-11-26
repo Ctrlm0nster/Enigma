@@ -34,7 +34,9 @@ struct SignalTrace {
  * @class EnigmaMachine
  * @brief Complete Enigma machine simulation chassis.
  *
- * Encapsulates the entire encryption loop:
+ * The default three-rotor setup follows this path. With additional rotors,
+ * the signal travels right to left through every rotor before reflection
+ * and left to right on the way back.
  *
  * @mermaid
  * flowchart LR
@@ -60,8 +62,9 @@ private:
   /**
    * @brief Advances rotor positions according to Enigma mechanical pawls.
    *
-   * Accurately replicates the historical double-stepping anomaly when the middle
-   * rotor is at its notch position.
+   * The rightmost rotor advances on every letter. Each rotor at its notch,
+   * except the leftmost rotor, also advances itself and its left neighbor.
+   * Which rotors move is decided before any positions change.
    */
   void stepRotors();
 

@@ -21,3 +21,11 @@ description = "Build and launch Enigma Workbench"
 depends = ["build"]
 run = "./build/mise/Enigma"
 run_windows = ".\\build\\mise\\Enigma.exe"
+
+[tasks.docs]
+description = "Generate documentation with Doxygen and Mermaid diagrams"
+run = "doxygen Doxyfile"
+
+[tasks.sanitize]
+description = "Build and test Enigma with AddressSanitizer and UBSan"
+run = "cmake -S . -B build/sanitized -G Ninja -DCMAKE_BUILD_TYPE=Debug -DENIGMA_ENABLE_SANITIZERS=ON && cmake --build build/sanitized && ctest --test-dir build/sanitized --output-on-failure"

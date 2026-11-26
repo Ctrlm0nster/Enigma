@@ -12,10 +12,14 @@ struct RotorSpec {
   char notch;
 };
 
-constexpr std::array<RotorSpec, rotorCount> rotors{{
+// Rotor wirings and turnover window letters for types I through V.
+// https://enigmamuseum.com/rotwirg.htm
+constexpr std::array<RotorSpec, maximumRotorCount> rotors{{
     {"EKMFLGDQVZNTOWYHXUSPAIBRCJ", 'Q'},
     {"AJDKSIRUXBLHWTMCQGZNPYFVOE", 'E'},
     {"BDFHJLCPRTXVZNYEIWGAKMUSQO", 'V'},
+    {"ESOVPZJAYQUIRHXLNFTGKDCMWB", 'J'},
+    {"VZBRGITYUPSDNHLXAWMJQOFECK", 'Z'},
 }};
 constexpr auto reflectorB = "YRUHQSLDPXNGOKMIEBFZCWVJAT";
 constexpr std::size_t plugLimit = 10;
@@ -33,8 +37,8 @@ Session::Session()
 
 EnigmaMachine Session::makeMachine() const {
   std::vector<Rotor> wheels;
-  wheels.reserve(rotors.size());
-  for (std::size_t i = 0; i < rotors.size(); ++i) {
+  wheels.reserve(rotorCount_);
+  for (std::size_t i = 0; i < rotorCount_; ++i) {
     Rotor rotor(rotors[i].wiring, rotors[i].notch, rings_[i]);
     rotor.setPosition(starts_[i]);
     wheels.push_back(rotor);
@@ -69,6 +73,32 @@ bool Session::typeLetter(char letter) {
   return true;
 }
 
+std::size_t Session::paste(std::string_view text) {
+  const auto remaining = messageLimit - input_.size();
+  if (remaining == 0) {
+    return 0;
+  }
+
+  // The view may refer to either tape, which typing can reallocate.
+  std::string accepted;
+  accepted.reserve(std::min(remaining, text.size()));
+  for (char character : text) {
+    if (character >= 'a' && character <= 'z') {
+      character = static_cast<char>(character + ('A' - 'a'));
+    }
+    if (character >= 'A' && character <= 'Z') {
+      accepted.push_back(character);
+      if (accepted.size() == remaining) {
+        break;
+      }
+    }
+  }
+  for (const char letter : accepted) {
+    typeLetter(letter);
+  }
+  return accepted.size();
+}
+
 void Session::backspace() {
   if (!input_.empty()) {
     input_.pop_back();
@@ -82,6 +112,16 @@ void Session::clearMessage() {
 }
 
 void Session::reset() { *this = Session{}; }
+
+bool Session::setRotorCount(std::size_t count) {
+  if (count < minimumRotorCount || count > maximumRotorCount ||
+      count == rotorCount_) {
+    return false;
+  }
+  rotorCount_ = count;
+  replay();
+  return true;
+}
 
 void Session::adjustRotor(std::size_t rotor, int startDelta, int ringDelta) {
   starts_[rotor] = (starts_[rotor] + startDelta + 26) % 26;

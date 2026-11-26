@@ -40,9 +40,10 @@ public:
   /**
    * @brief Initializes a rotor with its internal wiring, turnover notch, and ring setting.
    *
-   * @param wiring 26-letter substitution string specifying forward contacts.
+   * @param wiring A permutation of A–Z specifying forward contacts.
    * @param notchChar Character marking the turnover notch (e.g., 'Q' for Rotor I).
    * @param initRingSetting Ringstellung offset [0..25], defaults to 0 ('A'/01).
+   * @throws std::invalid_argument If the wiring or turnover notch is invalid.
    */
   Rotor(const std::string &wiring, char notchChar, int initRingSetting = 0);
   

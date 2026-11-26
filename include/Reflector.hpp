@@ -33,8 +33,8 @@ public:
    *
    * For example, Reflector B uses `"YRUHQSLDPXNGOKMIEBFZCWVJAT"`.
    *
-   * @param wiringConfig 26-character permutation string representing output contacts.
-   * @note Asserts that @p wiringConfig has length 26 and contains no self-mapping letters.
+   * @param wiringConfig A permutation of A–Z representing 13 reciprocal pairs.
+   * @throws std::invalid_argument If the wiring does not form 13 distinct pairs.
    */
   explicit Reflector(const std::string &wiringConfig);
 

@@ -1,14 +1,31 @@
 #include "Rotor.hpp"
 #include "Charactermap.hpp"
-#include <cassert>
+#include <stdexcept>
 
 Rotor::Rotor(const std::string &wiring, char notchChar, int initRingSetting)
-    : notch(charToIndex(notchChar)), ringSetting(initRingSetting) {
-  assert(wiring.size() == 26);
+    : ringSetting(initRingSetting) {
+  if (wiring.size() != forwardWiring.size()) {
+    throw std::invalid_argument("Rotor wiring must contain 26 letters");
+  }
+  if (notchChar < 'A' || notchChar > 'Z') {
+    throw std::invalid_argument("Rotor notch must be an uppercase ASCII letter");
+  }
+  notch = charToIndex(notchChar);
+
+  backwardWiring.fill(-1);
   for (int i = 0; i < 26; ++i) {
-    int out = charToIndex(wiring[idx(i)]);
-    forwardWiring[idx(i)] = out;
-    backwardWiring[idx(out)] = i;
+    const auto contact = idx(i);
+    const char letter = wiring[contact];
+    if (letter < 'A' || letter > 'Z') {
+      throw std::invalid_argument("Rotor wiring must use uppercase ASCII letters");
+    }
+    const int out = charToIndex(letter);
+    auto &inverse = backwardWiring[idx(out)];
+    if (inverse != -1) {
+      throw std::invalid_argument("Rotor wiring must use each letter once");
+    }
+    forwardWiring[contact] = out;
+    inverse = i;
   }
 }
 
