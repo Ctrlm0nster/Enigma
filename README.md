@@ -65,6 +65,8 @@ AddressSanitizer and UndefinedBehaviorSanitizer:
 mise run sanitize
 ```
 
+See [Bug and security notes](bug-security.md) for fixes and reporting details.
+
 ## Documentation
 
 The [documentation site](https://ctrlm0nster.github.io/Enigma/) brings together
