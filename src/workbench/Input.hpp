@@ -16,6 +16,7 @@ namespace workbench {
 
 class Session;
 struct Layout;
+class AudioEngine;
 
 /**
  * @struct Status
@@ -38,6 +39,8 @@ struct Status {
 struct InterfaceState {
   Status status;
   bool photoOpen = false;
+  bool presetsOpen = false;
+  std::optional<char> pressedKey;
 };
 
 enum class EventType {
@@ -73,6 +76,6 @@ struct PlatformContext {
  */
 bool handleEvent(Session &session, Layout &layout, InterfaceState &state,
                  const InputEvent &event, const PlatformContext &platform,
-                 bool &shouldClose);
+                 bool &shouldClose, AudioEngine *audio = nullptr);
 
 } // namespace workbench

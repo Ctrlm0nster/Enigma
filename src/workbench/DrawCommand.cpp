@@ -249,6 +249,68 @@ void DrawList::addCircle(Vector2 center, float radius, Color color,
   }
 }
 
+void DrawList::addBloomDisc(Vector2 center, float innerRadius, float outerRadius,
+                            Color innerColor, Color outerColor, int segments) {
+  if (outerRadius <= 0.0F || segments < 8) {
+    return;
+  }
+  setPipeline(PipelineType::Solid, 0);
+  ensureBatch();
+
+  constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
+  const auto cIn = colorToLinear(innerColor);
+  const auto cOut = colorToLinear(outerColor);
+  const auto baseIdx = static_cast<uint32_t>(vertices_.size());
+
+  for (int i = 0; i < segments; ++i) {
+    const float angle = (twoPi * static_cast<float>(i)) / static_cast<float>(segments);
+    const float cosA = std::cos(angle);
+    const float sinA = std::sin(angle);
+    vertices_.push_back({{center.x + cosA * innerRadius, center.y + sinA * innerRadius},
+                         {0.0F, 0.0F}, {cIn[0], cIn[1], cIn[2], cIn[3]}});
+    vertices_.push_back({{center.x + cosA * outerRadius, center.y + sinA * outerRadius},
+                         {0.0F, 0.0F}, {cOut[0], cOut[1], cOut[2], cOut[3]}});
+  }
+
+  for (int i = 0; i < segments; ++i) {
+    const auto next = (i + 1) % segments;
+    const uint32_t in0 = baseIdx + static_cast<uint32_t>(2 * i);
+    const uint32_t out0 = baseIdx + static_cast<uint32_t>(2 * i + 1);
+    const uint32_t in1 = baseIdx + static_cast<uint32_t>(2 * next);
+    const uint32_t out1 = baseIdx + static_cast<uint32_t>(2 * next + 1);
+
+    indices_.push_back(in0);
+    indices_.push_back(out0);
+    indices_.push_back(out1);
+    indices_.push_back(in0);
+    indices_.push_back(out1);
+    indices_.push_back(in1);
+    batches_.back().indexCount += 6;
+  }
+}
+
+void DrawList::addCubicBezier(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3,
+                             float thickness, Color color, int segments) {
+  if (segments < 4) {
+    segments = 4;
+  }
+  Vector2 prev = p0;
+  for (int i = 1; i <= segments; ++i) {
+    const float t = static_cast<float>(i) / static_cast<float>(segments);
+    const float u = 1.0F - t;
+    const float tt = t * t;
+    const float uu = u * u;
+    const float uuu = uu * u;
+    const float ttt = tt * t;
+
+    const Vector2 curr{
+        uuu * p0.x + 3.0F * uu * t * p1.x + 3.0F * u * tt * p2.x + ttt * p3.x,
+        uuu * p0.y + 3.0F * uu * t * p1.y + 3.0F * u * tt * p2.y + ttt * p3.y};
+    addLine(prev, curr, thickness, color);
+    prev = curr;
+  }
+}
+
 void DrawList::addTexturedQuad(uint32_t textureId, Rectangle src, Rectangle dst,
                                Color tint, Vector2 texSize) {
   if (texSize.x <= 0.0F || texSize.y <= 0.0F) {

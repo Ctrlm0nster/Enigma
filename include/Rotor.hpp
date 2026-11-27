@@ -33,8 +33,10 @@ private:
   std::array<int, 26> forwardWiring;  ///< Right-to-left wiring table.
   std::array<int, 26> backwardWiring; ///< Left-to-right inverse wiring table.
   int position = 0;                   ///< Current rotational position (0..25, displayed as A..Z).
-  int notch;                          ///< Turnover notch position (0..25).
+  int notch1 = -1;                    ///< Primary turnover notch position (0..25, or -1 if none).
+  int notch2 = -1;                    ///< Secondary turnover notch position (0..25, or -1 if none).
   int ringSetting = 0;                ///< Ringstellung offset (0..25).
+  bool steppable = true;              ///< Whether this rotor steps during normal operation (false for Greek rotors).
 
 public:
   /**
@@ -46,6 +48,23 @@ public:
    * @throws std::invalid_argument If the wiring or turnover notch is invalid.
    */
   Rotor(const std::string &wiring, char notchChar, int initRingSetting = 0);
+
+  /**
+   * @brief Initializes a rotor with optional dual turnover notches (naval rotors VI-VIII) or non-stepping (Greek Beta/Gamma).
+   *
+   * @param wiring A permutation of A–Z specifying forward contacts.
+   * @param notch1Char Character marking first turnover notch, or '\0' for none.
+   * @param notch2Char Character marking second turnover notch, or '\0' for none.
+   * @param initRingSetting Ringstellung offset [0..25], defaults to 0 ('A'/01).
+   * @param canStep Whether this rotor steps mechanically during typing.
+   */
+  Rotor(const std::string &wiring, char notch1Char, char notch2Char,
+        int initRingSetting = 0, bool canStep = true);
+  
+  /**
+   * @brief Returns whether this rotor steps mechanically during cipher operation.
+   */
+  bool isSteppable() const { return steppable; }
   
   /**
    * @brief Manually sets the visible rotational position of the rotor.

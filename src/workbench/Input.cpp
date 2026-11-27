@@ -1,5 +1,6 @@
 #include "Input.hpp"
 
+#include "AudioEngine.hpp"
 #include "Charactermap.hpp"
 #include "Layout.hpp"
 #include "Session.hpp"
@@ -12,6 +13,7 @@ constexpr int KeyBackspace = 259;
 constexpr int KeyC = 67;
 constexpr int KeyV = 86;
 constexpr int ModControl = 0x0002;
+constexpr int ActionRelease = 0;
 constexpr int ActionPress = 1;
 constexpr int ActionRepeat = 2;
 constexpr int MouseButtonLeft = 0;
@@ -27,7 +29,7 @@ void copyOutput(const Session &session, Status &status,
 }
 
 void pasteInput(Session &session, Status &status,
-                const PlatformContext &platform) {
+                const PlatformContext &platform, AudioEngine *audio = nullptr) {
   if (session.input().size() >= messageLimit) {
     status.show("Message tape is full");
     return;
@@ -35,6 +37,10 @@ void pasteInput(Session &session, Status &status,
   const std::string text = platform.getClipboard ? platform.getClipboard() : "";
   const auto count = !text.empty() ? session.paste(text) : 0;
   if (count != 0) {
+    if (audio) {
+      audio->play(SoundEffect::KeyClick);
+      audio->play(SoundEffect::RotorStep);
+    }
     const std::string detail = "Pasted " + std::to_string(count) +
                                (count == 1 ? " letter" : " letters");
     status.show(detail);
@@ -43,13 +49,20 @@ void pasteInput(Session &session, Status &status,
   }
 }
 
-void typeLetter(Session &session, Status &status, char letter) {
+void typeLetter(Session &session, Status &status, char letter, AudioEngine *audio = nullptr) {
+  if (audio) {
+    audio->play(SoundEffect::KeyClick);
+    audio->play(SoundEffect::RotorStep);
+  }
   if (!session.typeLetter(letter)) {
     status.show("Message limit reached");
   }
 }
 
-void handlePlug(Session &session, Status &status, int socket) {
+void handlePlug(Session &session, Status &status, int socket, AudioEngine *audio = nullptr) {
+  if (audio) {
+    audio->play(SoundEffect::PlugSnap);
+  }
   switch (session.selectPlug(socket)) {
   case PlugAction::Selected:
   case PlugAction::Cancelled:
@@ -74,7 +87,7 @@ int stepperDelta(const Stepper &control, Vector2 cursor) {
 }
 
 void handleClick(Session &session, Layout &layout, InterfaceState &state,
-                 Vector2 cursor, const PlatformContext &platform) {
+                 Vector2 cursor, const PlatformContext &platform, AudioEngine *audio) {
   auto &status = state.status;
   if (state.photoOpen) {
     if (checkCollisionPointRec(cursor, layout.closePhoto) ||
@@ -84,13 +97,51 @@ void handleClick(Session &session, Layout &layout, InterfaceState &state,
     return;
   }
 
+  if (state.presetsOpen) {
+    const auto presets = enigma::historicalPresets();
+    const Rectangle menuBounds{layout.presetsButton.x,
+                               layout.presetsButton.y + layout.presetsButton.height + 4,
+                               330, static_cast<float>(presets.size() * 48 + 32)};
+    if (checkCollisionPointRec(cursor, menuBounds)) {
+      for (std::size_t i = 0; i < presets.size(); ++i) {
+        const Rectangle itemBounds{menuBounds.x + 6, menuBounds.y + 28 + static_cast<float>(i * 48),
+                                   menuBounds.width - 12, 44};
+        if (checkCollisionPointRec(cursor, itemBounds)) {
+          session.loadPreset(i);
+          layout = makeLayout(layout.screenWidth, layout.screenHeight, session.rotorCount());
+          state.presetsOpen = false;
+          if (audio) {
+            audio->play(SoundEffect::RotorStep);
+          }
+          status.show(std::string("Loaded ") + std::string(presets[i].name));
+          return;
+        }
+      }
+    }
+    state.presetsOpen = false;
+    return;
+  }
+
+  if (checkCollisionPointRec(cursor, layout.soundToggle)) {
+    if (audio) {
+      audio->setMuted(!audio->isMuted());
+      status.show(audio->isMuted() ? "Sound muted" : "Sound enabled");
+    }
+    return;
+  }
+
+  if (checkCollisionPointRec(cursor, layout.presetsButton)) {
+    state.presetsOpen = !state.presetsOpen;
+    return;
+  }
+
   if (checkCollisionPointRec(cursor, layout.photo) ||
       checkCollisionPointRec(cursor, layout.openPhoto)) {
     state.photoOpen = true;
     return;
   }
   if (checkCollisionPointRec(cursor, layout.paste)) {
-    pasteInput(session, status, platform);
+    pasteInput(session, status, platform, audio);
     return;
   }
   if (checkCollisionPointRec(cursor, layout.copy)) {
@@ -123,6 +174,9 @@ void handleClick(Session &session, Layout &layout, InterfaceState &state,
       delta != 0) {
     const auto count = static_cast<int>(session.rotorCount()) + delta;
     if (session.setRotorCount(static_cast<std::size_t>(count))) {
+      if (audio) {
+        audio->play(SoundEffect::RotorStep);
+      }
       status.show("Using " + std::to_string(count) + " rotors");
       layout = makeLayout(layout.screenWidth, layout.screenHeight,
                           session.rotorCount());
@@ -136,6 +190,9 @@ void handleClick(Session &session, Layout &layout, InterfaceState &state,
     const int ringDelta = stepperDelta(row.ring, cursor);
     if (startDelta != 0 || ringDelta != 0) {
       session.adjustRotor(i, startDelta, ringDelta);
+      if (audio) {
+        audio->play(SoundEffect::RotorStep);
+      }
       status.show("Rotor settings updated");
       return;
     }
@@ -144,11 +201,12 @@ void handleClick(Session &session, Layout &layout, InterfaceState &state,
   for (int i = 0; i < 26; ++i) {
     if (checkCollisionPointCircle(cursor, layout.plugCenters[idx(i)],
                                   layout.plugRadius)) {
-      handlePlug(session, status, i);
+      handlePlug(session, status, i, audio);
       return;
     }
     if (checkCollisionPointRec(cursor, layout.keys[idx(i)])) {
-      typeLetter(session, status, indexToChar(i));
+      state.pressedKey = indexToChar(i);
+      typeLetter(session, status, indexToChar(i), audio);
       return;
     }
   }
@@ -179,13 +237,19 @@ double Status::secondsRemaining() const {
 
 bool handleEvent(Session &session, Layout &layout, InterfaceState &state,
                  const InputEvent &event, const PlatformContext &platform,
-                 bool &shouldClose) {
+                 bool &shouldClose, AudioEngine *audio) {
   switch (event.type) {
   case EventType::Key: {
+    if (event.action == ActionRelease) {
+      state.pressedKey.reset();
+      return true;
+    }
     if (event.action == ActionPress || event.action == ActionRepeat) {
       if (event.key == KeyEscape) {
         if (state.photoOpen) {
           state.photoOpen = false;
+        } else if (state.presetsOpen) {
+          state.presetsOpen = false;
         } else {
           shouldClose = true;
         }
@@ -201,7 +265,7 @@ bool handleEvent(Session &session, Layout &layout, InterfaceState &state,
         return true;
       }
       if (control && (event.key == KeyV || event.key == 'v')) {
-        pasteInput(session, state.status, platform);
+        pasteInput(session, state.status, platform, audio);
         return true;
       }
     }
@@ -217,15 +281,22 @@ bool handleEvent(Session &session, Layout &layout, InterfaceState &state,
       cp = cp - 'a' + 'A';
     }
     if (cp >= 'A' && cp <= 'Z') {
-      typeLetter(session, state.status, static_cast<char>(cp));
+      state.pressedKey = static_cast<char>(cp);
+      typeLetter(session, state.status, static_cast<char>(cp), audio);
       return true;
     }
     return false;
   }
   case EventType::MouseButton: {
-    if (event.button == MouseButtonLeft && event.action == ActionPress) {
-      handleClick(session, layout, state, event.cursor, platform);
-      return true;
+    if (event.button == MouseButtonLeft) {
+      if (event.action == ActionPress) {
+        handleClick(session, layout, state, event.cursor, platform, audio);
+        return true;
+      }
+      if (event.action == ActionRelease) {
+        state.pressedKey.reset();
+        return true;
+      }
     }
     return false;
   }

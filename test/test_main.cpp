@@ -1,7 +1,9 @@
 #include "Charactermap.hpp"
 #include "EnigmaMachine.hpp"
+#include "EnigmaSettings.hpp"
 #include "workbench/Session.hpp"
 #ifndef ENIGMA_CORE_ONLY
+#include "workbench/AudioEngine.hpp"
 #include "workbench/DrawCommand.hpp"
 #include "workbench/FontAtlas.hpp"
 #include "workbench/Geometry.hpp"
@@ -14,6 +16,20 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <stdexcept>
+
+#if defined(__has_feature)
+#if __has_feature(address_sanitizer)
+extern "C" const char *__lsan_default_suppressions() {
+  return "leak:libasound\nleak:libpipewire\nleak:libasound_module_pcm_pipewire\n";
+}
+#endif
+#endif
+
+#if !defined(__has_feature) && defined(__SANITIZE_ADDRESS__)
+extern "C" const char *__lsan_default_suppressions() {
+  return "leak:libasound\nleak:libpipewire\nleak:libasound_module_pcm_pipewire\n";
+}
+#endif
 
 TEST_CASE("Enigma Reversibility", "[enigma]") {
   Rotor rotor1("EKMFLGDQVZNTOWYHXUSPAIBRCJ", 'Q');
@@ -532,6 +548,165 @@ TEST_CASE(
   CHECK(assets.title.textureId() == 0);
   CHECK(assets.ui.textureId() == 0);
   CHECK(assets.mono.textureId() == 0);
+}
+
+TEST_CASE("Kriegsmarine Enigma M4 and Greek Rotors stationary operation",
+          "[enigma][m4]") {
+  // Kriegsmarine Enigma M4: Thin Reflector Bruno, Greek Beta (stationary), Rotor II, Rotor IV, Rotor I
+  // Beta wiring: LEYJVCNIXWPBQMDRTAKZGFUHOS (steppable = false)
+  Rotor beta("LEYJVCNIXWPBQMDRTAKZGFUHOS", '\0', '\0', 0, false);
+  CHECK_FALSE(beta.isSteppable());
+
+  Rotor rotor2("AJDKSIRUXBLHWTMCQGZNPYFVOE", 'E');
+  Rotor rotor4("ESOVPZJAYQUIRHXLNFTGKDCMWB", 'J');
+  Rotor rotor1("EKMFLGDQVZNTOWYHXUSPAIBRCJ", 'Q');
+
+  Reflector thinB("ENKQAUYWJICOPBLMDXZVFTHRGS");
+  Plugboard plugboard;
+  plugboard.addWire(charToIndex('A'), charToIndex('T'));
+  plugboard.addWire(charToIndex('B'), charToIndex('L'));
+
+  std::vector<Rotor> rotors{rotor1, rotor4, rotor2, beta};
+  EnigmaMachine m4(plugboard, rotors, thinB);
+
+  const int betaStartPos = beta.getPosition();
+  const std::string secret = "UBOOTTORPEDOANGRIFF";
+  const std::string cipher = m4.processString(secret);
+
+  // Greek rotor (index 3) should have remained stationary throughout 19 keystrokes!
+  CHECK(m4.getRotors()[3].getPosition() == betaStartPos);
+
+  // Verify full decryption reversibility on a fresh M4
+  std::vector<Rotor> resetRotors{rotor1, rotor4, rotor2, beta};
+  EnigmaMachine m4Decrypt(plugboard, resetRotors, thinB);
+  CHECK(m4Decrypt.processString(cipher) == secret);
+}
+
+TEST_CASE("Dual-notch turnover on Rotors VI, VII, VIII", "[enigma][notch]") {
+  // Rotor VI turnover at both 'Z' and 'M'
+  Rotor rotor6("JPGVOUMFYQBENHZRDKASXLICTW", 'Z', 'M');
+  rotor6.setPosition(charToIndex('Z'));
+  CHECK(rotor6.atNotch());
+  rotor6.setPosition(charToIndex('M'));
+  CHECK(rotor6.atNotch());
+  rotor6.setPosition(charToIndex('A'));
+  CHECK_FALSE(rotor6.atNotch());
+  rotor6.setPosition(charToIndex('Q'));
+  CHECK_FALSE(rotor6.atNotch());
+
+  // Rotor VII turnover at 'Z' and 'M'
+  Rotor rotor7("NZJHGRCXMYSWBOUFAIVLPEKQDT", 'Z', 'M');
+  rotor7.setPosition(charToIndex('Z'));
+  CHECK(rotor7.atNotch());
+  rotor7.setPosition(charToIndex('M'));
+  CHECK(rotor7.atNotch());
+
+  // Rotor VIII turnover at 'Z' and 'M'
+  Rotor rotor8("FKQHTLXOCBJSPDZRAMEWNIUYGV", 'Z', 'M');
+  rotor8.setPosition(charToIndex('Z'));
+  CHECK(rotor8.atNotch());
+  rotor8.setPosition(charToIndex('M'));
+  CHECK(rotor8.atNotch());
+}
+
+TEST_CASE("WWII Tagesschlüssel presets loader and reversibility",
+          "[enigma][presets]") {
+  const auto presets = enigma::historicalPresets();
+  REQUIRE(presets.size() == 5);
+
+  for (std::size_t i = 0; i < presets.size(); ++i) {
+    const auto &preset = presets[i];
+    CHECK_FALSE(preset.name.empty());
+    CHECK_FALSE(preset.date.empty());
+    CHECK_FALSE(preset.description.empty());
+
+    // Create machine from settings
+    auto machine = enigma::makeMachine(preset.settings);
+    const std::string message = "WETTERBERICHTDEUTSCHLAND";
+    const std::string cipher = machine.processString(message);
+    CHECK_FALSE(cipher.empty());
+    CHECK(cipher != message);
+
+    // Replay decipher
+    auto decryptor = enigma::makeMachine(preset.settings);
+    CHECK(decryptor.processString(cipher) == message);
+  }
+
+  // Session preset loading
+  workbench::Session session;
+  session.loadPreset(1); // U-552 Triton Shark (M4)
+  CHECK(session.rotorCount() == 4);
+  CHECK(session.typeLetter('A'));
+  CHECK_FALSE(session.output().empty());
+}
+
+TEST_CASE("AudioEngine operates safely without throwing in headless environments",
+          "[workbench][audio]") {
+  using namespace workbench;
+
+  AudioEngine audio;
+  // In CI or headless test environment without ALSA card, init returns gracefully
+  audio.init();
+
+  // Playing sound effects should never throw or hang
+  audio.play(SoundEffect::KeyClick);
+  audio.play(SoundEffect::RotorStep);
+  audio.play(SoundEffect::PlugSnap);
+
+  // Mute control
+  CHECK_FALSE(audio.isMuted());
+  audio.setMuted(true);
+  CHECK(audio.isMuted());
+  audio.setMuted(false);
+  CHECK_FALSE(audio.isMuted());
+
+  // Shutdown is idempotent
+  audio.shutdown();
+}
+
+TEST_CASE("DrawList batches bloom discs and cubic Bezier patch cords",
+          "[workbench][draw]") {
+  using namespace workbench;
+
+  DrawList dl;
+
+  // Add an optical incandescent lamp bloom disc
+  dl.addBloomDisc({100.0F, 100.0F}, 12.0F, 36.0F,
+                  Color{255, 170, 51, 160}, Color{255, 120, 20, 0}, 24);
+  CHECK(dl.vertices().size() > 0);
+  CHECK(dl.indices().size() > 0);
+  const std::size_t bloomVertCount = dl.vertices().size();
+
+  // Add a catenary draped cubic Bezier cord
+  dl.addCubicBezier({50.0F, 50.0F}, {50.0F, 90.0F}, {150.0F, 90.0F},
+                    {150.0F, 50.0F}, 3.5F, Color{185, 145, 80, 240}, 20);
+  CHECK(dl.vertices().size() > bloomVertCount);
+}
+
+TEST_CASE("Layout generates dedicated lampboard, typewriter keys, and toolbar controls",
+          "[workbench][layout]") {
+  using namespace workbench;
+
+  const auto layout = makeLayout(1320, 840, 4);
+
+  // Lampboard & keyboard cards exist with positive area
+  CHECK(layout.lampboard.width > 200.0F);
+  CHECK(layout.lampboard.height > 100.0F);
+  CHECK(layout.keyboard.width > 200.0F);
+  CHECK(layout.keyboard.height > 100.0F);
+
+  // 26 lamp centers and 26 keys positioned within bounds
+  for (int i = 0; i < 26; ++i) {
+    CHECK(checkCollisionPointRec(layout.lampCenters[i], layout.lampboard));
+    CHECK(layout.keys[i].width > 20.0F);
+    CHECK(layout.keys[i].height > 20.0F);
+  }
+
+  // Sound toggle and presets button are allocated in header
+  CHECK(layout.soundToggle.width > 50.0F);
+  CHECK(layout.presetsButton.width > 50.0F);
+  CHECK(layout.soundToggle.y < 80.0F);
+  CHECK(layout.presetsButton.y < 80.0F);
 }
 
 #endif // ENIGMA_CORE_ONLY

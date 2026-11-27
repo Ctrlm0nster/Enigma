@@ -1,5 +1,6 @@
 #include "bombe/DecipherPanel.hpp"
 
+#include "Charactermap.hpp"
 #include "bombe/DecipherInput.hpp"
 #include "workbench/Input.hpp"
 #include "workbench/Session.hpp"
@@ -10,6 +11,7 @@
 #include <GLFW/glfw3.h>
 
 #include <algorithm>
+#include <cstdio>
 
 namespace bombe {
 namespace {
@@ -194,6 +196,8 @@ void DecipherPanel::run() {
     progress_ = {};
     result_.reset();
     selected_ = 0;
+    startTime_ = std::chrono::steady_clock::now();
+    searchDurationSeconds_ = 0.0;
     auto request = parseSearch(
         fields_[Ciphertext], fields_[Crib], fields_[SearchRings],
         fields_[Offset], boardMode_,
@@ -237,6 +241,8 @@ bool DecipherPanel::update() {
   if (pendingResult_) {
     result_ = std::exchange(pendingResult_, std::nullopt);
     running_ = false;
+    searchDurationSeconds_ = std::chrono::duration<double>(
+        std::chrono::steady_clock::now() - startTime_).count();
     status_ =
         result_->status == SearchStatus::Complete && result_->candidates.empty()
             ? "No match in this search"
@@ -244,6 +250,8 @@ bool DecipherPanel::update() {
     changed = true;
   } else if (!pendingError_.empty()) {
     running_ = false;
+    searchDurationSeconds_ = std::chrono::duration<double>(
+        std::chrono::steady_clock::now() - startTime_).count();
     status_ = std::exchange(pendingError_, {});
     changed = true;
   }
@@ -464,6 +472,64 @@ void DecipherPanel::draw(DrawList &draw, const Assets &assets, Vector2 cursor,
                      " settings tested  /  " +
                      std::to_string(progress_.matches) + " crib matches",
                  {resultX, 245}, type::control, muted);
+
+    const double elapsed = running_
+        ? std::chrono::duration<double>(std::chrono::steady_clock::now() - startTime_).count()
+        : searchDurationSeconds_;
+    if (elapsed > 0.001) {
+      const double states = static_cast<double>(progress_.work > 0 ? progress_.work : progress_.settingsChecked);
+      const double mKeys = states / (elapsed * 1'000'000.0);
+      char speedBuf[96];
+      std::snprintf(speedBuf, sizeof(speedBuf), "Throughput: %.2f M keys/sec (%.2fs)", mKeys, elapsed);
+      draw.addText(mono, speedBuf, {resultX, 267}, type::control, amber);
+    }
+
+    // Scrambler drum bank visualization (British Turing-Welchman Bombe replica bank)
+    const float drumsRight = right(layout.results) - 20;
+    const float drumsWidth = 230;
+    const float drumsX = drumsRight - drumsWidth;
+    const float drumsY = 162;
+    const float drumsHeight = 92;
+    draw.addBox({drumsX, drumsY, drumsWidth, drumsHeight}, well, border, 0.12F);
+    draw.addCenteredText(ui, "TURING SCRAMBLERS", {drumsX + drumsWidth * 0.5F, drumsY + 12}, type::caption, amber);
+
+    const std::size_t step = progress_.settingsChecked;
+    const std::array<Color, 3> drumColors{
+        Color{60, 20, 25, 255},  // Red drum
+        Color{18, 32, 60, 255},  // Blue drum
+        Color{18, 50, 30, 255}   // Green drum
+    };
+
+    for (int d = 0; d < 3; ++d) {
+      const float dcx = drumsX + 38.0F + static_cast<float>(d) * 77.0F;
+      const float dcy = drumsY + 48.0F;
+      const float drumRadius = 24.0F;
+
+      int curOffset = 0;
+      if (running_) {
+        curOffset = (d == 0) ? static_cast<int>(step % 26)
+                             : (d == 1) ? static_cast<int>((step / 26) % 26)
+                                        : static_cast<int>((step / 676) % 26);
+      } else if (result_ && !result_->candidates.empty()) {
+        curOffset = result_->candidates[selected_].settings.starts[d];
+      } else {
+        curOffset = d * 5;
+      }
+
+      draw.addCircle({dcx, dcy}, drumRadius + 2.0F, Color{175, 145, 65, 255});
+      draw.addCircle({dcx, dcy}, drumRadius + 0.5F, Color{85, 70, 30, 255});
+      draw.addCircle({dcx, dcy}, drumRadius - 1.0F, drumColors[d]);
+
+      const char centerLetter = indexToChar(curOffset);
+      const char prevLetter = indexToChar((curOffset + 25) % 26);
+      const char nextLetter = indexToChar((curOffset + 1) % 26);
+
+      draw.addCenteredText(mono, std::string(1, prevLetter), {dcx, dcy - 14.0F}, 11.0F, Color{160, 160, 160, 140});
+      draw.addCenteredText(mono, std::string(1, centerLetter), {dcx, dcy}, 17.0F, amber);
+      draw.addCenteredText(mono, std::string(1, nextLetter), {dcx, dcy + 14.0F}, 11.0F, Color{160, 160, 160, 140});
+
+      draw.addCenteredText(ui, enigma::rotorNames[d], {dcx, drumsY + drumsHeight - 6.0F}, type::caption, muted);
+    }
   }
   std::size_t highlight = 0;
   std::size_t highlightedLength = 0;

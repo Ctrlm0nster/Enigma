@@ -4,6 +4,7 @@
 #include "workbench/Geometry.hpp"
 
 #include <array>
+#include <chrono>
 #include <mutex>
 #include <thread>
 
@@ -64,6 +65,8 @@ private:
   std::optional<SearchResult> result_;
   std::size_t selected_ = 0;
   std::size_t cribLength_ = 0;
+  std::chrono::steady_clock::time_point startTime_{};
+  double searchDurationSeconds_ = 0.0;
 
   std::mutex mailboxMutex_;
   std::optional<SearchProgress> pendingProgress_;

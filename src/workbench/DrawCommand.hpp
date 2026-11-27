@@ -47,6 +47,10 @@ public:
               float roundness = 0.07F);
   void addLine(Vector2 start, Vector2 end, float thickness, Color color);
   void addCircle(Vector2 center, float radius, Color color, int segments = 32);
+  void addBloomDisc(Vector2 center, float innerRadius, float outerRadius,
+                    Color innerColor, Color outerColor, int segments = 24);
+  void addCubicBezier(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3,
+                      float thickness, Color color, int segments = 24);
   void addTexturedQuad(uint32_t textureId, Rectangle src, Rectangle dst,
                        Color tint, Vector2 texSize);
   void addText(const FontAtlas &font, std::string_view text, Vector2 origin,

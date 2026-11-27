@@ -86,6 +86,12 @@ public:
   std::size_t rotorCount() const { return rotorCount_; }
   enigma::MachineSettings settings() const;
   void applySettings(const enigma::MachineSettings &settings);
+  void loadPreset(std::size_t presetIndex);
+
+  int rotorTypeAt(std::size_t rotor) const { return rotorTypes_[rotor]; }
+  void setRotorType(std::size_t rotor, int typeIndex);
+  int reflectorIndex() const { return reflectorIndex_; }
+  void setReflectorIndex(int index);
 
   /**
    * @brief Adjusts a rotor's starting position or ring setting.
@@ -125,6 +131,8 @@ private:
   std::size_t rotorCount_ = minimumRotorCount;
   std::array<int, maximumRotorCount> starts_{}; ///< Initial starting positions for rotors.
   std::array<int, maximumRotorCount> rings_{};  ///< Ringstellung offsets.
+  int reflectorIndex_ = 1;                     ///< Active reflector (default Reflector B).
+  std::array<int, maximumRotorCount> rotorTypes_{0, 1, 2, 3, 4}; ///< Model type IDs for each rotor slot.
   std::vector<std::pair<int, int>> plugPairs_; ///< Active plugboard wire pairs.
   EnigmaMachine machine_;                      ///< Current live machine instance.
   std::string input_;                          ///< Plaintext tape.

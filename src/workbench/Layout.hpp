@@ -48,10 +48,13 @@ struct Layout {
   Rectangle content;        ///< Centered main content area.
   Rectangle message;        ///< Tape display card.
   Rectangle signal;         ///< Electrical signal trace card.
-  Rectangle keyboard;       ///< Keyboard and lampboard card.
+  Rectangle lampboard;      ///< Dedicated 26-bulb incandescent lampboard card.
+  Rectangle keyboard;       ///< Typewriter keyboard card.
   Rectangle machine;        ///< Settings control panel card.
   Rectangle photo;          ///< Museum photo preview box.
   Rectangle openPhoto;      ///< Open photo modal button.
+  Rectangle soundToggle;    ///< Audio mute/unmute toggle button.
+  Rectangle presetsButton;  ///< WWII Tagesschlüssel presets button.
   Rectangle photoViewer;    ///< Full photo modal window.
   Rectangle closePhoto;     ///< Close photo modal button.
   Rectangle paste;          ///< Paste clipboard button.
@@ -62,6 +65,8 @@ struct Layout {
   Stepper rotorCountControl; ///< Add or remove the rightmost rotor.
 
   std::array<RotorRow, maximumRotorCount> rotorRows; ///< Active rotor rows come first.
+  std::array<Vector2, 26> lampCenters;        ///< Center coordinates for 26 incandescent lamps.
+  float lampRadius{16.0F};                    ///< Radius of each circular lamp.
   std::array<Rectangle, 26> keys;             ///< Bounds for 26 keyboard keys.
   std::array<Vector2, 26> plugCenters;        ///< Center coordinates for 26 plugboard sockets.
 

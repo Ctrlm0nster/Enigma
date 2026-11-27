@@ -1,4 +1,5 @@
 #include "bombe/DecipherPanel.hpp"
+#include "workbench/AudioEngine.hpp"
 #include "workbench/DrawCommand.hpp"
 #include "workbench/Input.hpp"
 #include "workbench/Layout.hpp"
@@ -162,6 +163,8 @@ int main() {
   Session session;
   bombe::DecipherPanel decipher;
   InterfaceState state;
+  AudioEngine audio;
+  audio.init();
   DrawList drawList;
   bool shouldClose = false;
 
@@ -201,7 +204,7 @@ int main() {
           continue;
         }
       }
-      if (handleEvent(session, layout, state, event, platform, shouldClose)) {
+      if (handleEvent(session, layout, state, event, platform, shouldClose, &audio)) {
         needRedraw = true;
       }
     }
@@ -224,7 +227,7 @@ int main() {
         drawList.clear();
         if (!decipher.isOpen()) {
           drawWorkbench(session, layout, assets, state, queue.lastCursorPos,
-                        drawList, queue.windowWidth, queue.windowHeight);
+                        drawList, queue.windowWidth, queue.windowHeight, &audio);
         }
         if (!state.photoOpen) {
           decipher.draw(drawList, assets, queue.lastCursorPos, queue.windowWidth,
@@ -256,6 +259,7 @@ int main() {
     }
   }
 
+  audio.shutdown();
   unloadAssets(renderer, assets);
   renderer.shutdown();
   glfwDestroyWindow(window);

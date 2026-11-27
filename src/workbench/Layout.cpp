@@ -13,25 +13,44 @@ Stepper makeStepper(float x, float y, float width) {
   return {{x, y, button, button}, {x + width - button, y, button, button}};
 }
 
+void placeLampboard(Layout &layout) {
+  constexpr std::array<std::string_view, 3> rows{"QWERTZUIO", "ASDFGHJK",
+                                                 "PYXCVBNML"};
+  const auto &bounds = layout.lampboard;
+  const float stepX = std::min(78.0F, (bounds.width - 44) / 9);
+  const float stepY = std::min(46.0F, (bounds.height - 58) / 3);
+  layout.lampRadius = std::min(16.5F, stepY * 0.42F);
+
+  const float centerX = bounds.x + bounds.width / 2;
+  const float centerY = bounds.y + (bounds.height + 42) / 2;
+  for (std::size_t row = 0; row < rows.size(); ++row) {
+    const float rowWidth = static_cast<float>(rows[row].size() - 1) * stepX;
+    for (std::size_t column = 0; column < rows[row].size(); ++column) {
+      layout.lampCenters[idx(charToIndex(rows[row][column]))] = {
+          centerX - rowWidth / 2 + static_cast<float>(column) * stepX,
+          centerY + (static_cast<float>(row) - 1) * stepY};
+    }
+  }
+}
+
 void placeKeyboard(Layout &layout) {
   constexpr std::array<std::string_view, 3> rows{"QWERTZUIO", "ASDFGHJK",
                                                  "PYXCVBNML"};
   const auto &bounds = layout.keyboard;
-  const float stepX = std::min(83.0F, (bounds.width - 44) / 9);
-  const float stepY = std::min(83.0F, (bounds.height - 95) / 3);
-  const float keyWidth = std::min(68.0F, stepX - 9);
-  const float keyHeight = std::min(64.0F, stepY - 11);
+  const float stepX = std::min(78.0F, (bounds.width - 44) / 9);
+  const float stepY = std::min(52.0F, (bounds.height - 58) / 3);
+  const float keySize = std::min(48.0F, std::min(stepX - 10, stepY - 6));
 
   const float centerX = bounds.x + bounds.width / 2;
-  const float centerY = bounds.y + (bounds.height + 58) / 2;
+  const float centerY = bounds.y + (bounds.height + 42) / 2;
   for (std::size_t row = 0; row < rows.size(); ++row) {
     const float rowWidth = static_cast<float>(rows[row].size() - 1) * stepX;
     for (std::size_t column = 0; column < rows[row].size(); ++column) {
       layout.keys[idx(charToIndex(rows[row][column]))] = {
           centerX - rowWidth / 2 + static_cast<float>(column) * stepX -
-              keyWidth / 2,
-          centerY + (static_cast<float>(row) - 1) * stepY - keyHeight / 2,
-          keyWidth, keyHeight};
+              keySize / 2,
+          centerY + (static_cast<float>(row) - 1) * stepY - keySize / 2,
+          keySize, keySize};
     }
   }
 }
@@ -90,12 +109,15 @@ Layout makeLayout(int screenWidth, int screenHeight, std::size_t rotorCount) {
   const float sideWidth = std::clamp(contentWidth * 0.29F, 340.0F, 392.0F);
   const float mainWidth = contentWidth - gap - sideWidth;
   constexpr float messageHeight = 229;
-  const float keyboardHeight = availableHeight - messageHeight - gap;
+  const float remainingMain = availableHeight - messageHeight - gap;
+  const float lampboardHeight = std::min(195.0F, remainingMain * 0.46F);
+  const float keyAreaY = top + messageHeight + gap + lampboardHeight + 10;
+  const float keyboardHeight = availableHeight - (keyAreaY - top);
 
   layout.content = {left, top, contentWidth, availableHeight};
   layout.message = {left, top, mainWidth, messageHeight};
-  layout.keyboard = {left, top + messageHeight + gap, mainWidth,
-                     keyboardHeight};
+  layout.lampboard = {left, top + messageHeight + gap, mainWidth, lampboardHeight};
+  layout.keyboard = {left, keyAreaY, mainWidth, keyboardHeight};
   layout.machine = {left + mainWidth + gap, top, sideWidth, availableHeight};
   const float extraHeight = std::clamp(height - minimumHeight, 0.0F, 160.0F);
   const float addedRotors = static_cast<float>(rotorCount - minimumRotorCount);
@@ -107,8 +129,11 @@ Layout makeLayout(int screenWidth, int screenHeight, std::size_t rotorCount) {
   layout.clear = {layout.copy.x - 73, top + 12, 63, 33};
   layout.paste = {layout.clear.x - 74, top + 12, 64, 33};
 
-  layout.openPhoto = {left + contentWidth - 174, 25, 174, 46};
+  layout.openPhoto = {left + contentWidth - 160, 25, 160, 46};
   layout.photo = {layout.openPhoto.x + 7, layout.openPhoto.y + 6, 39, 34};
+  layout.soundToggle = {layout.openPhoto.x - 116, 25, 106, 46};
+  layout.presetsButton = {layout.soundToggle.x - 116, 25, 106, 46};
+
   layout.rotorsTop = layout.signal.y + layout.signal.height + 10;
   const float viewerHeight = height - 48;
   const float viewerWidth = std::min(586.0F, viewerHeight * 0.80F);
@@ -116,6 +141,7 @@ Layout makeLayout(int screenWidth, int screenHeight, std::size_t rotorCount) {
                         viewerHeight};
   layout.closePhoto = {layout.photoViewer.x + viewerWidth - 76, 37, 62, 30};
 
+  placeLampboard(layout);
   placeKeyboard(layout);
   placeMachineControls(layout, rotorCount, extraHeight, addedRotors);
   layout.machine.height = std::min(

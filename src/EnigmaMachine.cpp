@@ -12,6 +12,9 @@ const Plugboard &EnigmaMachine::getPlugboard() const { return plugboard; }
 void EnigmaMachine::stepRotors() {
   // Walk left to right so each notch check sees a rotor before it moves.
   for (std::size_t i = 0; i < rotors.size(); ++i) {
+    if (!rotors[i].isSteppable()) {
+      continue;
+    }
     if (i + 1 == rotors.size() || (i != 0 && rotors[i].atNotch()) ||
         rotors[i + 1].atNotch()) {
       rotors[i].step();

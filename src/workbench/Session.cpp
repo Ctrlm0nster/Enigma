@@ -19,13 +19,15 @@ Session::Session()
       machine_(makeMachine()) {}
 
 enigma::MachineSettings Session::settings() const {
-  return {rotorCount_, starts_, rings_, plugPairs_};
+  return {rotorCount_, starts_, rings_, plugPairs_, reflectorIndex_, rotorTypes_};
 }
 
 void Session::applySettings(const enigma::MachineSettings &settings) {
   auto replacement = *this;
   replacement.rotorCount_ = settings.rotorCount;
   replacement.plugPairs_ = settings.plugPairs;
+  replacement.reflectorIndex_ = settings.reflectorIndex;
+  replacement.rotorTypes_ = settings.rotorTypes;
   replacement.selectedPlug_.reset();
   if (settings.rotorCount >= minimumRotorCount && settings.rotorCount <= maximumRotorCount) {
     std::copy_n(settings.starts.begin(), settings.rotorCount, replacement.starts_.begin());
@@ -33,6 +35,25 @@ void Session::applySettings(const enigma::MachineSettings &settings) {
   }
   replacement.replay();
   *this = std::move(replacement);
+}
+
+void Session::loadPreset(std::size_t presetIndex) {
+  const auto presets = enigma::historicalPresets();
+  if (presetIndex < presets.size()) {
+    applySettings(presets[presetIndex].settings);
+  }
+}
+
+void Session::setRotorType(std::size_t rotor, int typeIndex) {
+  if (rotor < rotorCount_) {
+    rotorTypes_[rotor] = typeIndex;
+    replay();
+  }
+}
+
+void Session::setReflectorIndex(int index) {
+  reflectorIndex_ = index;
+  replay();
 }
 
 EnigmaMachine Session::makeMachine() const {

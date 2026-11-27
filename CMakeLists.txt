@@ -61,6 +61,7 @@ if(ENIGMA_BUILD_WORKBENCH)
   endif()
   find_package(Freetype)
   find_package(JPEG)
+  find_package(ALSA)
 
   if(Vulkan_FOUND AND (TARGET glfw OR TARGET glfw3) AND Freetype_FOUND AND JPEG_FOUND)
     set(ENIGMA_WORKBENCH_AVAILABLE TRUE)
@@ -111,11 +112,16 @@ if(ENIGMA_WORKBENCH_AVAILABLE)
     src/workbench/ImageDecoder.cpp
     src/workbench/DrawCommand.cpp
     src/workbench/VulkanRenderer.cpp
+    src/workbench/AudioEngine.cpp
   )
 
   add_executable(Enigma ${ENIGMA_SOURCES})
   target_include_directories(Enigma PRIVATE src ${FREETYPE_INCLUDE_DIRS} ${JPEG_INCLUDE_DIR})
   target_link_libraries(Enigma PRIVATE EnigmaCore Vulkan::Vulkan glfw Freetype::Freetype JPEG::JPEG)
+  if(ALSA_FOUND)
+    target_compile_definitions(Enigma PRIVATE ENIGMA_HAS_ALSA=1)
+    target_link_libraries(Enigma PRIVATE ALSA::ALSA)
+  endif()
   enigma_set_warnings(Enigma)
   enigma_enable_sanitizers(Enigma)
   add_dependencies(Enigma EnigmaShaders)
@@ -170,10 +176,15 @@ if(BUILD_TESTING)
       src/workbench/ImageDecoder.cpp
       src/workbench/DrawCommand.cpp
       src/workbench/VulkanRenderer.cpp
+      src/workbench/AudioEngine.cpp
     )
     target_include_directories(EnigmaTests PRIVATE src ${FREETYPE_INCLUDE_DIRS} ${JPEG_INCLUDE_DIR})
     target_compile_definitions(EnigmaTests PRIVATE CATCH_CONFIG_NO_COUNTER)
     target_link_libraries(EnigmaTests PRIVATE EnigmaCore Catch2::Catch2WithMain Vulkan::Vulkan glfw Freetype::Freetype JPEG::JPEG)
+    if(ALSA_FOUND)
+      target_compile_definitions(EnigmaTests PRIVATE ENIGMA_HAS_ALSA=1)
+      target_link_libraries(EnigmaTests PRIVATE ALSA::ALSA)
+    endif()
     enigma_set_warnings(EnigmaTests)
     enigma_enable_sanitizers(EnigmaTests)
     add_dependencies(EnigmaTests EnigmaAssets EnigmaShaders)

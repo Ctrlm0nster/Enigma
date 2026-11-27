@@ -17,6 +17,7 @@ class Session;
 struct Layout;
 struct InterfaceState;
 class VulkanRenderer;
+class AudioEngine;
 
 /**
  * @struct Assets
@@ -61,6 +62,6 @@ void unloadAssets(VulkanRenderer &renderer, const Assets &assets);
 void drawWorkbench(const Session &session, const Layout &layout,
                    const Assets &assets, const InterfaceState &state,
                    Vector2 cursor, DrawList &drawList, int screenWidth,
-                   int screenHeight);
+                   int screenHeight, const AudioEngine *audio = nullptr);
 
 } // namespace workbench

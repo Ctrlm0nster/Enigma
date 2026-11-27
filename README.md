@@ -1,31 +1,37 @@
 # Enigma Workbench
 
-An interactive Enigma machine simulator built with C++20 and Vulkan 1.3. The app
-uses the historical I–V rotor wirings, their turnover notches, Reflector B,
-ring settings, double stepping, and a configurable plugboard.
+An authentic, high-performance Enigma machine simulator and Turing-Welchman Bombe
+built with modern C++20 and custom Vulkan 1.3 rendering. Features a physical lampboard,
+tactile typewriter keycaps, draped cubic Bezier patch cords, zero-asset procedural
+mechanical audio synthesis, historical Kriegsmarine M4 modeling, and WWII Tagesschlüssel presets.
 
-## Interface
+## Flagship Features
 
-- Type with the physical keyboard or click the on-screen keys. The output key
-  lights up in amber.
-- Paste a message with `Ctrl+V`. The machine accepts letters A–Z and ignores
-  spaces and punctuation.
-- See plaintext and ciphertext grouped into traditional five-letter blocks.
-- Follow the real signal state through the plugboard, rotors, reflector, and
-  return path for every keypress.
-- Select **Machine photo** to inspect the original Enigma at the Imperial War
-  Museum.
-- Change each rotor's starting position and ring setting. Existing text is
-  automatically re-encrypted with the new configuration.
-- Use the **−** and **+** controls next to **Rotor settings** to change the
-  number of active rotors from three to five. The signal diagram and settings
-  update immediately. Four- and five-rotor configurations extend the simulator's
-  stepping model with the historical wirings for Rotors IV and V.
-- Click two plugboard letters to connect them; click an active letter to remove
-  its lead. Up to ten leads are supported.
-- Use Backspace to undo a keypress and accurately rewind the machine, or copy
-  the ciphertext with the button or `Ctrl+C`.
-- Resize the window down to 1080×720 without losing controls.
+### 1. Authentic Visual & Physical Simulation
+- **Dedicated 26-Bulb Lampboard (*Glühlampenfeld*)**: Multi-ring annular gradient optical bloom discs (`#FFAA33` filament core to soft outer halo) encased in antique brass bezels with dark translucent amber glass lenses.
+- **Physical Typewriter Keycaps (*Tastatur*)**: Circular dual-layer metallic nickel/chrome rims with dark bakelite enamel faces and 3px downward mechanical travel upon keystroke depression.
+- **Catenary Draped Plugboard Leads (*Steckerbrett*)**: Realistic cubic Bezier patch cords with gravity sag, ambient drop shadows, braided fabric texture jackets, and metallic socket collars.
+- **Knurled Cylindrical Rotors**: Live inspection windows with knurled thumbwheel serration grooves and individual model designations.
+
+### 2. Procedural Mechanical Audio Engine
+- Zero-external-audio-asset procedural mathematical synthesis (44.1kHz mono):
+  - Typewriter mechanical key strikes with resonant metal plink (~36ms)
+  - Metallic pawl ratchet turnover and rotor detent clicks (~48ms)
+  - Plugboard banana plug contact friction and socket spring clamp snaps (~28ms)
+- Thread-safe non-blocking ALSA PCM streaming with sound toggle (`Sound: ON` / `Sound: MUTE`) and automatic headless/CI fallback.
+
+### 3. Historical Kriegsmarine Enigma M4 & WWII Codebook Presets
+- Full Kriegsmarine Enigma M4 support with stationary Greek rotors *Beta* ($\beta$) and *Gamma* ($\gamma$), Thin Reflectors *Bruno* and *Caesar*, and dual turnover notches on Rotors VI, VII, and VIII (turning over at both 'Z' and 'M').
+- One-click authentic WWII *Tagesschlüssel* codebook loader:
+  - **Operation Barbarossa (1941)**: Frontline Wehrmacht Heer key (Rotors II-IV-V)
+  - **U-552 Triton Shark (1942)**: Kriegsmarine M4 4-rotor U-boat key (Beta-II-IV-I, Thin B)
+  - **North Atlantic Wolfpack (1943)**: Kriegsmarine M4 wolfpack key (Beta-VII-VIII-VI, Thin B)
+  - **Normandy Invasion (1944)**: Western Front key (Rotors V-II-IV)
+  - **Scharnhorst Final Battle (1943)**: Arctic battleship key (Rotors III-VI-VIII)
+
+### 4. Turing-Welchman Bombe Scrambler Bank & Benchmarking
+- Real-time rotating cylindrical scrambler drum visualization (crimson, Prussian blue, and forest green dials) animating during search decipher.
+- High-throughput key search benchmark reporting throughput in Megakeys/second.
 
 ## Build and run
 
