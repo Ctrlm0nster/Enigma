@@ -12,7 +12,7 @@ constexpr int KeyEscape = 256;
 constexpr int KeyBackspace = 259;
 constexpr int KeyC = 67;
 constexpr int KeyV = 86;
-constexpr int ModControl = 0x0002;
+constexpr unsigned ModControl = 0x0002U;
 constexpr int ActionRelease = 0;
 constexpr int ActionPress = 1;
 constexpr int ActionRepeat = 2;
@@ -276,7 +276,7 @@ bool handleEvent(Session &session, Layout &layout, InterfaceState &state,
         session.backspace();
         return true;
       }
-      const bool control = (event.mods & ModControl) != 0;
+      const bool control = (static_cast<unsigned>(event.mods) & ModControl) != 0;
       if (control && (event.key == KeyC || event.key == 'c')) {
         copyOutput(session, state.status, platform);
         return true;
@@ -289,7 +289,7 @@ bool handleEvent(Session &session, Layout &layout, InterfaceState &state,
     return false;
   }
   case EventType::Char: {
-    const bool control = (event.mods & ModControl) != 0;
+    const bool control = (static_cast<unsigned>(event.mods) & ModControl) != 0;
     if (control || state.presetsOpen || state.photoOpen) {
       return false;
     }

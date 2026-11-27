@@ -72,7 +72,8 @@ int main() {
     if (!q) {
       return;
     }
-    q->ctrlDown = (mods & GLFW_MOD_CONTROL) != 0;
+    q->ctrlDown = (static_cast<unsigned>(mods) &
+                   static_cast<unsigned>(GLFW_MOD_CONTROL)) != 0;
     q->events.push_back({EventType::Key, key, scancode, action, mods, 0, 0,
                          q->lastCursorPos, 0, 0});
   });
@@ -236,7 +237,6 @@ int main() {
         }
         renderer.renderDrawList(drawList, queue.windowWidth, queue.windowHeight);
         if (!renderer.endFrame()) {
-          shouldClose = true;
           break;
         }
       }

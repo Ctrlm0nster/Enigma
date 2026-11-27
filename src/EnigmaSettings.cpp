@@ -27,17 +27,12 @@ constexpr std::array<RotorSpec, 10> allRotors{{
     {"FSOKANUERHMBTIYCWLQPZXVGJD", '\0', '\0', false}, // Gamma (M4 Greek)
 }};
 
-const std::array<Reflector, 5> allReflectors{
-    Reflector("EJMZALYXVBWFCRQUONTSPIKHGD"), // A
-    Reflector("YRUHQSLDPXNGOKMIEBFZCWVJAT"), // B
-    Reflector("FVPJIAOYEDRZXWGCTKUQSBNMHL"), // C
-    Reflector("ENKQAUYWJICOPBLMDXZVFTHRGS"), // Thin B (M4 Bruno)
-    Reflector("RDOBJNTKVEHMLFCWZAXGYIPSUQ"), // Thin C (M4 Caesar)
-};
-
 bool isContact(int contact) { return contact >= 0 && contact < 26; }
 
-const std::array<HistoricalPreset, 5> presets{{
+} // namespace
+
+std::span<const HistoricalPreset> historicalPresets() {
+  static const std::array<HistoricalPreset, 5> presets{{
     {"Operation Barbarossa", "22 Jun 1941",
      "Wehrmacht Heer frontline key at launch of Eastern Front (Rotors II-IV-V)",
      MachineSettings{
@@ -135,11 +130,7 @@ const std::array<HistoricalPreset, 5> presets{{
          .reflectorIndex = 1, // Refl B
          .rotorTypes = {2, 5, 7, 0, 0} // III, VI, VIII
      }},
-}};
-
-} // namespace
-
-std::span<const HistoricalPreset> historicalPresets() {
+  }};
   return presets;
 }
 
@@ -178,6 +169,13 @@ EnigmaMachine makeMachine(const MachineSettings &settings) {
     plugboard.addWire(first, second);
   }
 
+  static const std::array<Reflector, 5> allReflectors{
+      Reflector("EJMZALYXVBWFCRQUONTSPIKHGD"), // A
+      Reflector("YRUHQSLDPXNGOKMIEBFZCWVJAT"), // B
+      Reflector("FVPJIAOYEDRZXWGCTKUQSBNMHL"), // C
+      Reflector("ENKQAUYWJICOPBLMDXZVFTHRGS"), // Thin B (M4 Bruno)
+      Reflector("RDOBJNTKVEHMLFCWZAXGYIPSUQ"), // Thin C (M4 Caesar)
+  };
   const std::size_t reflIdx =
       (settings.reflectorIndex >= 0 &&
        settings.reflectorIndex < static_cast<int>(allReflectors.size()))

@@ -23,6 +23,19 @@ namespace {
 
 constexpr uint32_t fontMipLevels = 3;
 
+VkPipelineShaderStageCreateInfo shaderStage(VkShaderStageFlagBits stage,
+                                            VkShaderModule module) {
+  return {
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+      .pNext = nullptr,
+      .flags = 0,
+      .stage = stage,
+      .module = module,
+      .pName = "main",
+      .pSpecializationInfo = nullptr,
+  };
+}
+
 VkRect2D framebufferClip(Rectangle clip, VkExtent2D extent, float scaleX,
                          float scaleY) {
   const float width = static_cast<float>(extent.width);
@@ -42,7 +55,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
     void * /*pUserData*/) {
   if (severity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
-    std::cerr << "[Vulkan Validation] " << pCallbackData->pMessage << std::endl;
+    std::cerr << "[Vulkan Validation] " << pCallbackData->pMessage << '\n';
   }
   return VK_FALSE;
 }
@@ -88,7 +101,7 @@ bool VulkanRenderer::init(GLFWwindow *window, bool enableValidation) {
 
   if (glfwCreateWindowSurface(instance_, window_, nullptr, &surface_) !=
       VK_SUCCESS) {
-    std::cerr << "Failed to create window surface" << std::endl;
+    std::cerr << "Failed to create window surface" << '\n';
     shutdown();
     return false;
   }
@@ -270,14 +283,14 @@ bool VulkanRenderer::createInstance(bool enableValidation) {
   std::clog << "[Vulkan] Loader API version: "
             << VK_API_VERSION_MAJOR(loaderVersion) << "."
             << VK_API_VERSION_MINOR(loaderVersion) << "."
-            << VK_API_VERSION_PATCH(loaderVersion) << std::endl;
+            << VK_API_VERSION_PATCH(loaderVersion) << '\n';
 
   uint32_t glfwExtCount = 0;
   const char **glfwExtensions =
       glfwGetRequiredInstanceExtensions(&glfwExtCount);
   if (!glfwExtensions || glfwExtCount == 0) {
     std::cerr << "GLFW could not provide required Vulkan extensions"
-              << std::endl;
+              << '\n';
     return false;
   }
 
@@ -329,7 +342,7 @@ bool VulkanRenderer::createInstance(bool enableValidation) {
         VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
         VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
     debugCreateInfo.messageType =
-        VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+        VkDebugUtilsMessageTypeFlagsEXT{VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT} |
         VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
         VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
     debugCreateInfo.pfnUserCallback = debugCallback;
@@ -337,7 +350,7 @@ bool VulkanRenderer::createInstance(bool enableValidation) {
   }
 
   if (vkCreateInstance(&createInfo, nullptr, &instance_) != VK_SUCCESS) {
-    std::cerr << "Failed to create Vulkan instance" << std::endl;
+    std::cerr << "Failed to create Vulkan instance" << '\n';
     return false;
   }
 
@@ -353,7 +366,7 @@ bool VulkanRenderer::selectPhysicalDevice() {
   uint32_t deviceCount = 0;
   vkEnumeratePhysicalDevices(instance_, &deviceCount, nullptr);
   if (deviceCount == 0) {
-    std::cerr << "No Vulkan physical devices found" << std::endl;
+    std::cerr << "No Vulkan physical devices found" << '\n';
     return false;
   }
 
@@ -368,7 +381,7 @@ bool VulkanRenderer::selectPhysicalDevice() {
       std::clog << "[Vulkan] Rejected device '" << props.deviceName
                 << "': API version " << VK_API_VERSION_MAJOR(props.apiVersion)
                 << "." << VK_API_VERSION_MINOR(props.apiVersion)
-                << " is below required 1.3" << std::endl;
+                << " is below required 1.3" << '\n';
       continue;
     }
 
@@ -385,7 +398,7 @@ bool VulkanRenderer::selectPhysicalDevice() {
                 << "': Missing required Vulkan 1.3 feature(s):"
                 << (!features13.dynamicRendering ? " dynamicRendering" : "")
                 << (!features13.synchronization2 ? " synchronization2" : "")
-                << std::endl;
+                << '\n';
       continue;
     }
 
@@ -406,7 +419,7 @@ bool VulkanRenderer::selectPhysicalDevice() {
     if (!hasSwapchain) {
       std::clog << "[Vulkan] Rejected device '" << props.deviceName
                 << "': Missing device extension "
-                << VK_KHR_SWAPCHAIN_EXTENSION_NAME << std::endl;
+                << VK_KHR_SWAPCHAIN_EXTENSION_NAME << '\n';
       continue;
     }
 
@@ -442,7 +455,7 @@ bool VulkanRenderer::selectPhysicalDevice() {
       std::clog << "[Vulkan] Rejected device '" << props.deviceName
                 << "': Lacks queue family supporting "
                 << (!graphicsFamily.has_value() ? "graphics" : "presentation")
-                << std::endl;
+                << '\n';
       continue;
     }
 
@@ -455,7 +468,7 @@ bool VulkanRenderer::selectPhysicalDevice() {
     if (formatCount == 0 || presentModeCount == 0) {
       std::clog << "[Vulkan] Rejected device '" << props.deviceName
                 << "': Surface reports no compatible formats or present modes"
-                << std::endl;
+                << '\n';
       continue;
     }
 
@@ -469,11 +482,11 @@ bool VulkanRenderer::selectPhysicalDevice() {
               << ", driver version " << props.driverVersion
               << ", graphics queue: " << graphicsQueueFamily_
               << ", present queue: " << presentQueueFamily_ << ")"
-              << std::endl;
+              << '\n';
     return true;
   }
 
-  std::cerr << "No suitable Vulkan 1.3 physical device found" << std::endl;
+  std::cerr << "No suitable Vulkan 1.3 physical device found" << '\n';
   return false;
 }
 
@@ -512,7 +525,7 @@ bool VulkanRenderer::createLogicalDevice() {
 
   if (vkCreateDevice(physicalDevice_, &createInfo, nullptr, &device_) !=
       VK_SUCCESS) {
-    std::cerr << "Failed to create logical device" << std::endl;
+    std::cerr << "Failed to create logical device" << '\n';
     return false;
   }
 
@@ -563,36 +576,35 @@ bool VulkanRenderer::createSwapchain(int width, int height) {
     imageCount = capabilities.maxImageCount;
   }
 
-  VkSwapchainCreateInfoKHR createInfo{};
-  createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-  createInfo.surface = surface_;
-  createInfo.minImageCount = imageCount;
-  createInfo.imageFormat = chosenFormat.format;
-  createInfo.imageColorSpace = chosenFormat.colorSpace;
-  createInfo.imageExtent = extent;
-  createInfo.imageArrayLayers = 1;
-  createInfo.imageUsage =
-      VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-
   const uint32_t queueFamilyIndices[] = {graphicsQueueFamily_,
                                          presentQueueFamily_};
-  if (graphicsQueueFamily_ != presentQueueFamily_) {
-    createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-    createInfo.queueFamilyIndexCount = 2;
-    createInfo.pQueueFamilyIndices = queueFamilyIndices;
-  } else {
-    createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-  }
-
-  createInfo.preTransform = capabilities.currentTransform;
-  createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-  createInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR;
-  createInfo.clipped = VK_TRUE;
-  createInfo.oldSwapchain = VK_NULL_HANDLE;
+  const bool separateQueues = graphicsQueueFamily_ != presentQueueFamily_;
+  const VkSwapchainCreateInfoKHR createInfo{
+      .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+      .pNext = nullptr,
+      .flags = 0,
+      .surface = surface_,
+      .minImageCount = imageCount,
+      .imageFormat = chosenFormat.format,
+      .imageColorSpace = chosenFormat.colorSpace,
+      .imageExtent = extent,
+      .imageArrayLayers = 1,
+      .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                    VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+      .imageSharingMode = separateQueues ? VK_SHARING_MODE_CONCURRENT
+                                         : VK_SHARING_MODE_EXCLUSIVE,
+      .queueFamilyIndexCount = separateQueues ? 2U : 0U,
+      .pQueueFamilyIndices = separateQueues ? queueFamilyIndices : nullptr,
+      .preTransform = capabilities.currentTransform,
+      .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+      .presentMode = VK_PRESENT_MODE_FIFO_KHR,
+      .clipped = VK_TRUE,
+      .oldSwapchain = VK_NULL_HANDLE,
+  };
 
   if (vkCreateSwapchainKHR(device_, &createInfo, nullptr, &swapchain_) !=
       VK_SUCCESS) {
-    std::cerr << "Failed to create swapchain" << std::endl;
+    std::cerr << "Failed to create swapchain" << '\n';
     return false;
   }
 
@@ -729,7 +741,7 @@ VkShaderModule VulkanRenderer::loadOrFallbackShader(
         VkShaderModule mod = createShaderModule(buffer.data(), fileSize);
         if (mod != VK_NULL_HANDLE) {
           std::clog << "[Vulkan] Loaded compiled SPIR-V: " << fullPath
-                    << std::endl;
+                    << '\n';
           return mod;
         }
       }
@@ -740,7 +752,7 @@ VkShaderModule VulkanRenderer::loadOrFallbackShader(
     return createShaderModule(fallbackCode, fallbackSizeInBytes);
   }
 
-  std::cerr << "Shader unavailable: " << shaderFilename << std::endl;
+  std::cerr << "Shader unavailable: " << shaderFilename << '\n';
   return VK_NULL_HANDLE;
 }
 
@@ -824,15 +836,21 @@ bool VulkanRenderer::createPipelines() {
   rasterizer.cullMode = VK_CULL_MODE_NONE;
   rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
 
-  VkPipelineMultisampleStateCreateInfo multisampling{};
-  multisampling.sType =
-      VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-  multisampling.sampleShadingEnable = VK_FALSE;
-  multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+  const VkPipelineMultisampleStateCreateInfo multisampling{
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+      .pNext = nullptr,
+      .flags = 0,
+      .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+      .sampleShadingEnable = VK_FALSE,
+      .minSampleShading = 0.0F,
+      .pSampleMask = nullptr,
+      .alphaToCoverageEnable = VK_FALSE,
+      .alphaToOneEnable = VK_FALSE,
+  };
 
   VkPipelineColorBlendAttachmentState colorBlendAttachment{};
   colorBlendAttachment.colorWriteMask =
-      VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+      VkColorComponentFlags{VK_COLOR_COMPONENT_R_BIT} | VK_COLOR_COMPONENT_G_BIT |
       VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
   colorBlendAttachment.blendEnable = VK_TRUE;
   colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
@@ -881,17 +899,10 @@ bool VulkanRenderer::createPipelines() {
     return false;
   }
 
-  VkPipelineShaderStageCreateInfo solidStages[2]{};
-  solidStages[0].sType =
-      VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-  solidStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-  solidStages[0].module = solidVert;
-  solidStages[0].pName = "main";
-  solidStages[1].sType =
-      VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-  solidStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-  solidStages[1].module = solidFrag;
-  solidStages[1].pName = "main";
+  const VkPipelineShaderStageCreateInfo solidStages[]{
+      shaderStage(VK_SHADER_STAGE_VERTEX_BIT, solidVert),
+      shaderStage(VK_SHADER_STAGE_FRAGMENT_BIT, solidFrag),
+  };
 
   VkGraphicsPipelineCreateInfo solidPipelineInfo{};
   solidPipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -935,17 +946,10 @@ bool VulkanRenderer::createPipelines() {
     return false;
   }
 
-  VkPipelineShaderStageCreateInfo sampledStages[2]{};
-  sampledStages[0].sType =
-      VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-  sampledStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-  sampledStages[0].module = sampledVert;
-  sampledStages[0].pName = "main";
-  sampledStages[1].sType =
-      VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-  sampledStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-  sampledStages[1].module = sampledFrag;
-  sampledStages[1].pName = "main";
+  const VkPipelineShaderStageCreateInfo sampledStages[]{
+      shaderStage(VK_SHADER_STAGE_VERTEX_BIT, sampledVert),
+      shaderStage(VK_SHADER_STAGE_FRAGMENT_BIT, sampledFrag),
+  };
 
   VkGraphicsPipelineCreateInfo sampledPipelineInfo = solidPipelineInfo;
   sampledPipelineInfo.pStages = sampledStages;
@@ -972,7 +976,7 @@ uint32_t VulkanRenderer::findMemoryType(uint32_t typeFilter,
   VkPhysicalDeviceMemoryProperties memProperties;
   vkGetPhysicalDeviceMemoryProperties(physicalDevice_, &memProperties);
   for (uint32_t i = 0; i < memProperties.memoryTypeCount; ++i) {
-    if ((typeFilter & (1 << i)) &&
+    if ((typeFilter & (1U << i)) &&
         (memProperties.memoryTypes[i].propertyFlags & properties) ==
             properties) {
       return i;
@@ -1030,8 +1034,9 @@ bool VulkanRenderer::createFrameResources() {
   fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
   fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-  constexpr VkDeviceSize vertexBufferSize = 2 * 1024 * 1024; // 2MB
-  constexpr VkDeviceSize indexBufferSize = 1 * 1024 * 1024;  // 1MB
+  constexpr VkDeviceSize mebibyte = VkDeviceSize{1024} * 1024;
+  constexpr VkDeviceSize vertexBufferSize = 2 * mebibyte;
+  constexpr VkDeviceSize indexBufferSize = mebibyte;
 
   VkPhysicalDeviceMemoryProperties memProperties;
   vkGetPhysicalDeviceMemoryProperties(physicalDevice_, &memProperties);
@@ -1187,21 +1192,23 @@ uint32_t VulkanRenderer::createTexture(const uint8_t *data, int width,
               static_cast<std::size_t>(imageSize));
   vkUnmapMemory(device_, stagingBufferMemory);
 
-  VkImageCreateInfo imageInfo{};
-  imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-  imageInfo.imageType = VK_IMAGE_TYPE_2D;
-  imageInfo.extent.width = static_cast<uint32_t>(width);
-  imageInfo.extent.height = static_cast<uint32_t>(height);
-  imageInfo.extent.depth = 1;
-  imageInfo.mipLevels = mipLevels;
-  imageInfo.arrayLayers = 1;
-  imageInfo.format = format;
-  imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-  imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  imageInfo.usage =
-      VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-  imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-  imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+  const VkImageCreateInfo imageInfo{
+      .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+      .pNext = nullptr,
+      .flags = 0,
+      .imageType = VK_IMAGE_TYPE_2D,
+      .format = format,
+      .extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1},
+      .mipLevels = mipLevels,
+      .arrayLayers = 1,
+      .samples = VK_SAMPLE_COUNT_1_BIT,
+      .tiling = VK_IMAGE_TILING_OPTIMAL,
+      .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+      .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+      .queueFamilyIndexCount = 0,
+      .pQueueFamilyIndices = nullptr,
+      .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+  };
 
   VkImage image = VK_NULL_HANDLE;
   VkDeviceMemory imageMemory = VK_NULL_HANDLE;
@@ -1409,7 +1416,7 @@ bool VulkanRenderer::beginFrame(int fbWidth, int fbHeight) {
       vkWaitForFences(device_, 1, &frame.inFlightFence, VK_TRUE, UINT64_MAX);
   if (fenceWait != VK_SUCCESS) {
     if (fenceWait == VK_ERROR_DEVICE_LOST) {
-      std::cerr << "Fatal: Vulkan device lost during fence wait." << std::endl;
+      std::cerr << "Fatal: Vulkan device lost during fence wait." << '\n';
     }
     return false;
   }
@@ -1428,7 +1435,7 @@ bool VulkanRenderer::beginFrame(int fbWidth, int fbHeight) {
              acquireRes == VK_ERROR_SURFACE_LOST_KHR) {
     std::cerr
         << "Fatal: Vulkan device or surface lost during image acquisition ("
-        << acquireRes << ")." << std::endl;
+        << acquireRes << ")." << '\n';
     return false;
   } else if (acquireRes != VK_SUCCESS) {
     return false;
@@ -1502,7 +1509,7 @@ void VulkanRenderer::renderDrawList(const DrawList &drawList, int windowWidth,
   const VkDeviceSize iBytes = indices.size() * sizeof(uint32_t);
 
   if (vBytes > frame.vertexBufferSize || iBytes > frame.indexBufferSize) {
-    std::cerr << "DrawList exceeded buffer capacity" << std::endl;
+    std::cerr << "DrawList exceeded buffer capacity" << '\n';
     return;
   }
 
@@ -1544,7 +1551,7 @@ void VulkanRenderer::renderDrawList(const DrawList &drawList, int windowWidth,
   vkCmdBindIndexBuffer(frame.commandBuffer, frame.indexBuffer, 0,
                        VK_INDEX_TYPE_UINT32);
 
-  PipelineType boundPipeline = static_cast<PipelineType>(-1);
+  std::optional<PipelineType> boundPipeline;
 
   for (const auto &batch : batches) {
     if (batch.indexCount == 0) {
@@ -1649,9 +1656,9 @@ bool VulkanRenderer::endFrame() {
   VkResult submitRes =
       vkQueueSubmit2(graphicsQueue_, 1, &submitInfo, frame.inFlightFence);
   if (submitRes != VK_SUCCESS) {
-    std::cerr << "vkQueueSubmit2 failed with result: " << submitRes << std::endl;
+    std::cerr << "vkQueueSubmit2 failed with result: " << submitRes << '\n';
     if (submitRes == VK_ERROR_DEVICE_LOST) {
-      std::cerr << "Fatal: Vulkan device lost during submission." << std::endl;
+      std::cerr << "Fatal: Vulkan device lost during submission." << '\n';
     }
     return false;
   }
@@ -1671,11 +1678,11 @@ bool VulkanRenderer::endFrame() {
   } else if (presentRes == VK_ERROR_DEVICE_LOST ||
              presentRes == VK_ERROR_SURFACE_LOST_KHR) {
     std::cerr << "Fatal: Vulkan device or surface lost during presentation ("
-              << presentRes << ")." << std::endl;
+              << presentRes << ")." << '\n';
     return false;
   } else if (presentRes != VK_SUCCESS) {
     std::cerr << "vkQueuePresentKHR failed with result: " << presentRes
-              << std::endl;
+              << '\n';
     return false;
   }
 

@@ -426,7 +426,10 @@ void drawRotors(const Session &session, const Layout &layout,
     button(assets.mono, row.modelButton, rotorName(session, i), cursor, drawList);
     drawList.addBox(row.liveWindow, well, border, 0.22F);
 
-    for (float notchY = row.liveWindow.y + 4.0F; notchY < bottom(row.liveWindow) - 3.0F; notchY += 4.0F) {
+    for (int offset = 4;
+         static_cast<float>(offset) < row.liveWindow.height - 3.0F;
+         offset += 4) {
+      const float notchY = row.liveWindow.y + static_cast<float>(offset);
       drawList.addLine({row.liveWindow.x + 1.0F, notchY},
                        {row.liveWindow.x + 3.0F, notchY}, 1, Color{75, 80, 90, 200});
       drawList.addLine({right(row.liveWindow) - 3.0F, notchY},
@@ -463,7 +466,7 @@ void drawPlugboard(const Session &session, const Layout &layout,
   std::string leads;
   for (const auto &[first, second] : pairs) {
     if (!leads.empty()) {
-      leads += " ";
+      leads += ' ';
     }
     leads += letterAt(first) + "–" + letterAt(second);
     const auto a = layout.plugCenters[idx(first)];
@@ -641,7 +644,7 @@ bool loadFontWithFallback(FontAtlas &atlas, const std::string &root,
       if (face != primaryFace) {
         std::clog << "[Assets] Font '" << primaryFace
                   << "' unavailable, using fallback '" << face << "'"
-                  << std::endl;
+                  << '\n';
       }
       return true;
     }
@@ -663,7 +666,7 @@ Assets loadAssets(VulkanRenderer &renderer, const std::string &assetDir) {
 
   if (!titleOk && !uiOk && !monoOk) {
     std::cerr << "Fatal: No font faces could be loaded from " << root
-              << std::endl;
+              << '\n';
     assets.fontsLoaded = false;
     return assets;
   }

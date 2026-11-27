@@ -180,7 +180,7 @@ public:
          std::stop_token stop, const ProgressCallback &callback,
          const CandidateCallback &candidateCallback)
       : ciphertext_(ciphertext), crib_(crib), settings_(settings),
-        limits_(limits), stop_(stop), callback_(callback),
+        limits_(limits), stop_(std::move(stop)), callback_(callback),
         candidateCallback_(candidateCallback) {}
 
   SearchResult run(const std::vector<Menu> &menus, std::size_t alignmentCount,
@@ -424,7 +424,8 @@ SearchResult search(const SearchRequest &request, SearchLimits limits,
       menus.push_back(std::move(*menu));
     }
   }
-  return Search(ciphertext, crib, settings, limits, stop, progress, candidate)
+  return Search(ciphertext, crib, settings, limits, std::move(stop), progress,
+                candidate)
       .run(menus, last - first + 1, seed, boardKnown, searchProfiles(request));
 }
 

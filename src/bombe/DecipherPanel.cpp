@@ -144,10 +144,12 @@ void tape(DrawList &draw, const FontAtlas &mono, Rectangle bounds,
       break;
     }
     const auto column = i % perLine;
+    const auto groupSeparators = column / 5;
+    const auto tapeColumn = column + groupSeparators;
     const bool inCrib = i >= highlight && i - highlight < highlightLength;
     draw.addText(
         mono, text.substr(i, 1),
-        {textArea.x + static_cast<float>(column + column / 5) * advance,
+        {textArea.x + static_cast<float>(tapeColumn) * advance,
          textArea.y + static_cast<float>(row) * lineAdvance},
         fontSize, inCrib ? amber : foreground);
   }
@@ -289,11 +291,11 @@ void DecipherPanel::run(bool step) {
     }
     status_ = step ? "Stepping to the next checkpoint" : "Preparing search";
     worker_ = std::jthread([this, request = std::move(request)](
-                               std::stop_token stop) {
+                               const std::stop_token &stop) {
       try {
         auto result = search(
             request, {.work = expandedSearchWork}, stop,
-            [this, stop](const SearchProgress &progress) {
+            [this, &stop](const SearchProgress &progress) {
               std::unique_lock lock(mailboxMutex_);
               pendingProgress_ = progress;
               if (progress.phase != SearchPhase::Finished) {
@@ -430,7 +432,8 @@ std::optional<bool> DecipherPanel::handle(const InputEvent &event,
 
   const bool key = event.type == EventType::Key && event.action != GLFW_RELEASE;
   const bool press = key && event.action == GLFW_PRESS;
-  const bool control = (event.mods & GLFW_MOD_CONTROL) != 0;
+  const bool control = (static_cast<unsigned>(event.mods) &
+                        static_cast<unsigned>(GLFW_MOD_CONTROL)) != 0;
   if ((click && hit(layout.back())) ||
       (press && event.key == GLFW_KEY_ESCAPE)) {
     worker_.request_stop();

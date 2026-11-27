@@ -53,7 +53,9 @@ bool FontAtlas::load(const std::string &path, int basePixelSize,
 
   atlasWidth_ = 1024;
   atlasHeight_ = 1024;
-  bitmap_.assign(static_cast<std::size_t>(atlasWidth_ * atlasHeight_), 0);
+  const auto atlasPixels = static_cast<std::size_t>(atlasWidth_) *
+                           static_cast<std::size_t>(atlasHeight_);
+  bitmap_.assign(atlasPixels, 0);
   glyphs_.clear();
 
   // Keep glyph coverage separate when the atlas is filtered down to 1/4 size.

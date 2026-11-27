@@ -3,6 +3,7 @@
 #include "Charactermap.hpp"
 
 #include <charconv>
+#include <memory>
 #include <span>
 #include <stdexcept>
 #include <system_error>
@@ -26,8 +27,9 @@ std::string_view nextToken(std::string_view &text,
 
 std::size_t positiveNumber(std::string_view token, std::string_view label) {
   std::size_t value = 0;
-  const auto end = token.data() + token.size();
-  const auto [last, error] = std::from_chars(token.data(), end, value);
+  const auto end = std::to_address(token.end());
+  const auto [last, error] =
+      std::from_chars(std::to_address(token.begin()), end, value);
   if (error != std::errc{} || last != end || value == 0) {
     throw std::invalid_argument(std::string(label) +
                                 " must be a positive number");

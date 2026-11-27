@@ -29,10 +29,10 @@ std::vector<int16_t> synthesizeKeyClick() {
   // PRNG state for transient noise
   uint32_t rng = 0x89ABCDEF;
   const auto randFloat = [&rng]() -> float {
-    rng ^= rng << 13;
-    rng ^= rng >> 17;
-    rng ^= rng << 5;
-    return static_cast<float>(rng & 0xFFFF) / 32768.0F - 1.0F;
+    rng ^= rng << 13U;
+    rng ^= rng >> 17U;
+    rng ^= rng << 5U;
+    return static_cast<float>(rng & 0xFFFFU) / 32768.0F - 1.0F;
   };
 
   for (std::size_t i = 0; i < sampleCount; ++i) {
@@ -66,10 +66,10 @@ std::vector<int16_t> synthesizeRotorStep() {
 
   uint32_t rng = 0x12345678;
   const auto randFloat = [&rng]() -> float {
-    rng ^= rng << 13;
-    rng ^= rng >> 17;
-    rng ^= rng << 5;
-    return static_cast<float>(rng & 0xFFFF) / 32768.0F - 1.0F;
+    rng ^= rng << 13U;
+    rng ^= rng >> 17U;
+    rng ^= rng << 5U;
+    return static_cast<float>(rng & 0xFFFFU) / 32768.0F - 1.0F;
   };
 
   // Secondary latch click delay (~16ms)
@@ -109,10 +109,10 @@ std::vector<int16_t> synthesizePlugSnap() {
 
   uint32_t rng = 0xCAFEBABE;
   const auto randFloat = [&rng]() -> float {
-    rng ^= rng << 13;
-    rng ^= rng >> 17;
-    rng ^= rng << 5;
-    return static_cast<float>(rng & 0xFFFF) / 32768.0F - 1.0F;
+    rng ^= rng << 13U;
+    rng ^= rng >> 17U;
+    rng ^= rng << 5U;
+    return static_cast<float>(rng & 0xFFFFU) / 32768.0F - 1.0F;
   };
 
   for (std::size_t i = 0; i < sampleCount; ++i) {

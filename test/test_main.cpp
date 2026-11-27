@@ -126,7 +126,11 @@ TEST_CASE("Workbench edits replay the message from its configured start",
   REQUIRE(edited.input() == fresh.input());
   REQUIRE(edited.output() == fresh.output());
   REQUIRE(edited.positionAt(2) == fresh.positionAt(2));
-  REQUIRE(edited.trace()->input == 'M');
+  if (const auto &trace = edited.trace()) {
+    REQUIRE(trace->input == 'M');
+  } else {
+    FAIL("The edited message should have a signal trace");
+  }
 }
 
 TEST_CASE("Pasting formats letters without altering how the machine steps",
@@ -173,14 +177,22 @@ TEST_CASE("Changing the rotor count rebuilds the entire tape and trace",
   const auto threeRotorOutput = session.output();
 
   REQUIRE(session.setRotorCount(4));
-  CHECK(session.trace()->rotorForward.size() == 4);
-  CHECK(session.trace()->rotorBackward.size() == 4);
+  if (const auto &trace = session.trace()) {
+    CHECK(trace->rotorForward.size() == 4);
+    CHECK(trace->rotorBackward.size() == 4);
+  } else {
+    FAIL("The four-rotor machine should have a signal trace");
+  }
   const auto fourRotorOutput = session.output();
   CHECK(fourRotorOutput != threeRotorOutput);
 
   REQUIRE(session.setRotorCount(5));
-  CHECK(session.trace()->rotorForward.size() == 5);
-  CHECK(session.trace()->rotorBackward.size() == 5);
+  if (const auto &trace = session.trace()) {
+    CHECK(trace->rotorForward.size() == 5);
+    CHECK(trace->rotorBackward.size() == 5);
+  } else {
+    FAIL("The five-rotor machine should have a signal trace");
+  }
   CHECK(session.output() != fourRotorOutput);
   session.adjustRotor(4, 1, 2);
   const auto adjustedOutput = session.output();
@@ -475,7 +487,7 @@ TEST_CASE("ImageDecoder decodes museum JPEG and handles corrupted files",
   REQUIRE(valid.valid);
   CHECK(valid.width == 1414);
   CHECK(valid.height == 1886);
-  CHECK(valid.rgba.size() == 1414 * 1886 * 4);
+  CHECK(valid.rgba.size() == std::size_t{1414} * 1886 * 4);
 
   const auto missing = decodeJpeg("assets/non_existent_file.jpg");
   CHECK_FALSE(missing.valid);

@@ -14,7 +14,7 @@
 namespace bombe {
 
 inline constexpr std::size_t rotorCount = enigma::minimumRotorCount;
-inline constexpr std::size_t startCount = 26 * 26 * 26;
+inline constexpr std::size_t startCount = std::size_t{26} * 26 * 26;
 inline constexpr std::size_t checkpointWork = 256;
 inline constexpr std::size_t expandedSearchWork = 6'000'000;
 

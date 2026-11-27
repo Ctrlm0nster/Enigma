@@ -9,7 +9,7 @@
 
 namespace {
 
-const std::string message =
+constexpr std::string_view message =
     "THISPREFACESETSUPTHEMESSAGEFORANENIGMADEMONSTRATION"
     "BRINGEXTRAQUIETSUPPLIESFORTHEWEATHERSTATIONNEARZURICH";
 
@@ -21,7 +21,8 @@ bombe::SearchRequest demonstrationSearch(bombe::PlugboardMode mode) {
   const auto settings = demonstrationSettings();
   auto sender = enigma::makeMachine(settings);
   auto request =
-      bombe::parseSearch(sender.processString(message), message.substr(1, 85),
+      bombe::parseSearch(sender.processString(std::string(message)),
+                         std::string(message.substr(1, 85)),
                          "03 02 05", "2", mode, "");
   return request;
 }
@@ -34,7 +35,8 @@ TEST_CASE("Known settings decipher the documented Enigma vector", "[bombe]") {
 
   const auto settings =
       bombe::parseSettings("ABBCE", "01 03 09 24 26", "AZ BY");
-  const auto ciphertext = enigma::makeMachine(settings).processString(message);
+  const auto ciphertext =
+      enigma::makeMachine(settings).processString(std::string(message));
   CHECK(bombe::decipher(ciphertext, settings) == message);
 }
 
@@ -121,7 +123,8 @@ TEST_CASE("Bombe recovers rotor order and reflector and streams verified matches
   }
 
   bombe::SearchRequest request;
-  request.ciphertext = enigma::makeMachine(settings).processString(message);
+  request.ciphertext =
+      enigma::makeMachine(settings).processString(std::string(message));
   request.crib = message;
   request.cribOffset = 0;
   std::copy_n(settings.rings.begin(), bombe::rotorCount, request.rings.begin());
@@ -154,9 +157,11 @@ TEST_CASE("Bombe recovers rotor order and reflector and streams verified matches
           }
         }
       });
-  REQUIRE(checkpoint);
+  if (!checkpoint || !checkpoint->start) {
+    FAIL("Bombe did not publish a starting window at a checkpoint");
+    return;
+  }
   CHECK(checkpoint->work == bombe::checkpointWork);
-  REQUIRE(checkpoint->start);
   CHECK(*checkpoint->start == bombe::checkpointWork - 1);
   CHECK(checkpoint->cribOffset == 0);
   CHECK(streamed);

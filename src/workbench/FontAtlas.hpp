@@ -36,29 +36,32 @@ inline uint32_t decodeUtf8(std::string_view str, std::size_t &i) {
   if (i >= str.size()) {
     return 0;
   }
-  const auto c0 = static_cast<uint8_t>(str[i]);
-  if ((c0 & 0x80) == 0) {
+  const auto byteAt = [str](std::size_t offset) -> uint32_t {
+    return static_cast<unsigned char>(str[offset]);
+  };
+  const auto c0 = byteAt(i);
+  if ((c0 & 0x80U) == 0) {
     ++i;
     return c0;
   }
-  if ((c0 & 0xE0) == 0xC0 && i + 1 < str.size()) {
-    const auto c1 = static_cast<uint8_t>(str[i + 1]);
+  if ((c0 & 0xE0U) == 0xC0U && i + 1 < str.size()) {
+    const auto c1 = byteAt(i + 1);
     i += 2;
-    return ((c0 & 0x1F) << 6) | (c1 & 0x3F);
+    return ((c0 & 0x1FU) << 6U) | (c1 & 0x3FU);
   }
-  if ((c0 & 0xF0) == 0xE0 && i + 2 < str.size()) {
-    const auto c1 = static_cast<uint8_t>(str[i + 1]);
-    const auto c2 = static_cast<uint8_t>(str[i + 2]);
+  if ((c0 & 0xF0U) == 0xE0U && i + 2 < str.size()) {
+    const auto c1 = byteAt(i + 1);
+    const auto c2 = byteAt(i + 2);
     i += 3;
-    return ((c0 & 0x0F) << 12) | ((c1 & 0x3F) << 6) | (c2 & 0x3F);
+    return ((c0 & 0x0FU) << 12U) | ((c1 & 0x3FU) << 6U) | (c2 & 0x3FU);
   }
-  if ((c0 & 0xF8) == 0xF0 && i + 3 < str.size()) {
-    const auto c1 = static_cast<uint8_t>(str[i + 1]);
-    const auto c2 = static_cast<uint8_t>(str[i + 2]);
-    const auto c3 = static_cast<uint8_t>(str[i + 3]);
+  if ((c0 & 0xF8U) == 0xF0U && i + 3 < str.size()) {
+    const auto c1 = byteAt(i + 1);
+    const auto c2 = byteAt(i + 2);
+    const auto c3 = byteAt(i + 3);
     i += 4;
-    return ((c0 & 0x07) << 18) | ((c1 & 0x3F) << 12) | ((c2 & 0x3F) << 6) |
-           (c3 & 0x3F);
+    return ((c0 & 0x07U) << 18U) | ((c1 & 0x3FU) << 12U) |
+           ((c2 & 0x3FU) << 6U) | (c3 & 0x3FU);
   }
   ++i;
   return '?';
