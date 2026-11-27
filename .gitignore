@@ -57,3 +57,7 @@ _deps/
 # Operating System files
 .DS_Store
 Thumbs.db
+
+# Local release planning
+/FINISHING-CHECKLIST.md
+/FINISHING-IMPLEMENTATION-PLAN.md
