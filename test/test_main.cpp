@@ -645,7 +645,7 @@ TEST_CASE("Dual-notch turnover on Rotors VI, VII, VIII", "[enigma][notch]") {
   CHECK(rotor8.atNotch());
 }
 
-TEST_CASE("WWII Tagesschlüssel presets loader and reversibility",
+TEST_CASE("WWII key presets load and support round-trip encryption",
           "[enigma][presets]") {
   const auto presets = enigma::historicalPresets();
   REQUIRE(presets.size() == 5);
