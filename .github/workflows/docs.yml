@@ -41,22 +41,22 @@ jobs:
         run: doxygen Doxyfile
 
       - name: Upload Documentation Artifact (Always Available)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: doxygen-html
           path: docs/html/
           retention-days: 30
 
       - name: Setup Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
         with:
           enablement: true
 
       - name: Upload Pages Artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: 'docs/html'
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
