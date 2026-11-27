@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "EnigmaMachine.hpp"
+#include "EnigmaSettings.hpp"
 
 #include <array>
 #include <optional>
@@ -19,10 +19,10 @@
 
 namespace workbench {
 
-inline constexpr std::array rotorNames{"I", "II", "III", "IV", "V"};
-inline constexpr std::size_t minimumRotorCount = 3;
-inline constexpr std::size_t maximumRotorCount = rotorNames.size();
-inline constexpr std::size_t messageLimit = 240;  ///< Maximum characters on the message tape.
+using enigma::maximumRotorCount;
+using enigma::messageLimit;
+using enigma::minimumRotorCount;
+using enigma::rotorNames;
 
 /**
  * @enum PlugAction
@@ -84,6 +84,8 @@ public:
   /** Changes the rotor count and replays the tape. Inactive rotor settings are saved. */
   bool setRotorCount(std::size_t count);
   std::size_t rotorCount() const { return rotorCount_; }
+  enigma::MachineSettings settings() const;
+  void applySettings(const enigma::MachineSettings &settings);
 
   /**
    * @brief Adjusts a rotor's starting position or ring setting.

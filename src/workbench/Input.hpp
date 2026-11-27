@@ -5,6 +5,10 @@
 
 #pragma once
 
+#include "Geometry.hpp"
+
+#include <chrono>
+#include <functional>
 #include <string>
 #include <string_view>
 
@@ -18,22 +22,13 @@ struct Layout;
  * @brief Manages transient on-screen notification messages with expiration timers.
  */
 struct Status {
-  std::string message;      ///< Current status string.
-  double expiresAt = 0;     ///< Timestamp when the notification disappears.
+  std::string message;
+  std::chrono::steady_clock::time_point expiresAt{};
 
-  /**
-   * @brief Displays a status message for a default duration.
-   *
-   * @param value Text to display.
-   */
   void show(std::string_view value);
-
-  /**
-   * @brief Retrieves the active message if not expired.
-   *
-   * @return String view of the active status, or empty if expired.
-   */
   std::string_view current() const;
+  bool isExpired() const;
+  double secondsRemaining() const;
 };
 
 /**
@@ -41,20 +36,43 @@ struct Status {
  * @brief Holds modal state and status alert system.
  */
 struct InterfaceState {
-  Status status;            ///< Active status notification.
-  bool photoOpen = false;   ///< Whether the full museum photo viewer is open.
+  Status status;
+  bool photoOpen = false;
+};
+
+enum class EventType {
+  Key,
+  Char,
+  MouseButton,
+  CursorPos,
+  WindowResize,
+  WindowClose
+};
+
+struct InputEvent {
+  EventType type{EventType::Key};
+  int key{0};
+  int scancode{0};
+  int action{0}; // 0 = release, 1 = press, 2 = repeat
+  int mods{0};   // 1 = shift, 2 = control, 4 = alt, 8 = super
+  uint32_t codepoint{0};
+  int button{0}; // 0 = left, 1 = right, 2 = middle
+  Vector2 cursor{};
+  int width{0};
+  int height{0};
+};
+
+struct PlatformContext {
+  std::function<void(std::string_view)> setClipboard;
+  std::function<std::string()> getClipboard;
 };
 
 /**
- * @brief Processes Raylib mouse and keyboard inputs for the active workbench session.
- *
- * Handles typing, backspace, clipboard copy (Ctrl+C), clipboard paste (Ctrl+V),
- * rotor adjustments, plugboard connections, and modal interactions.
- *
- * @param session Active session instance.
- * @param layout Current UI layout calculations.
- * @param state Mutable interface modal and status state.
+ * @brief Handles an ordered event and updates session/state/layout.
+ * @return True if a visual change requires redrawing.
  */
-void handleInput(Session &session, const Layout &layout, InterfaceState &state);
+bool handleEvent(Session &session, Layout &layout, InterfaceState &state,
+                 const InputEvent &event, const PlatformContext &platform,
+                 bool &shouldClose);
 
 } // namespace workbench

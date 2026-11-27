@@ -3,25 +3,37 @@
 #include "Charactermap.hpp"
 #include "Layout.hpp"
 #include "Session.hpp"
-#include "raylib.h"
 
 namespace workbench {
 namespace {
 
-void copyOutput(const Session &session, Status &status) {
+constexpr int KeyEscape = 256;
+constexpr int KeyBackspace = 259;
+constexpr int KeyC = 67;
+constexpr int KeyV = 86;
+constexpr int ModControl = 0x0002;
+constexpr int ActionPress = 1;
+constexpr int ActionRepeat = 2;
+constexpr int MouseButtonLeft = 0;
+
+void copyOutput(const Session &session, Status &status,
+                const PlatformContext &platform) {
   if (!session.output().empty()) {
-    SetClipboardText(session.output().c_str());
+    if (platform.setClipboard) {
+      platform.setClipboard(session.output());
+    }
     status.show("Ciphertext copied");
   }
 }
 
-void pasteInput(Session &session, Status &status) {
+void pasteInput(Session &session, Status &status,
+                const PlatformContext &platform) {
   if (session.input().size() >= messageLimit) {
     status.show("Message tape is full");
     return;
   }
-  const char *clipboard = GetClipboardText();
-  const auto count = clipboard ? session.paste(clipboard) : 0;
+  const std::string text = platform.getClipboard ? platform.getClipboard() : "";
+  const auto count = !text.empty() ? session.paste(text) : 0;
   if (count != 0) {
     const std::string detail = "Pasted " + std::to_string(count) +
                                (count == 1 ? " letter" : " letters");
@@ -55,41 +67,51 @@ void handlePlug(Session &session, Status &status, int socket) {
 }
 
 int stepperDelta(const Stepper &control, Vector2 cursor) {
-  if (CheckCollisionPointRec(cursor, control.decrease)) {
+  if (checkCollisionPointRec(cursor, control.decrease)) {
     return -1;
   }
-  return CheckCollisionPointRec(cursor, control.increase) ? 1 : 0;
+  return checkCollisionPointRec(cursor, control.increase) ? 1 : 0;
 }
 
-void handleClick(Session &session, const Layout &layout, InterfaceState &state,
-                 Vector2 cursor) {
+void handleClick(Session &session, Layout &layout, InterfaceState &state,
+                 Vector2 cursor, const PlatformContext &platform) {
   auto &status = state.status;
-  if (CheckCollisionPointRec(cursor, layout.photo) ||
-      CheckCollisionPointRec(cursor, layout.openPhoto)) {
+  if (state.photoOpen) {
+    if (checkCollisionPointRec(cursor, layout.closePhoto) ||
+        !checkCollisionPointRec(cursor, layout.photoViewer)) {
+      state.photoOpen = false;
+    }
+    return;
+  }
+
+  if (checkCollisionPointRec(cursor, layout.photo) ||
+      checkCollisionPointRec(cursor, layout.openPhoto)) {
     state.photoOpen = true;
     return;
   }
-  if (CheckCollisionPointRec(cursor, layout.paste)) {
-    pasteInput(session, status);
+  if (checkCollisionPointRec(cursor, layout.paste)) {
+    pasteInput(session, status, platform);
     return;
   }
-  if (CheckCollisionPointRec(cursor, layout.copy)) {
-    copyOutput(session, status);
+  if (checkCollisionPointRec(cursor, layout.copy)) {
+    copyOutput(session, status, platform);
     return;
   }
-  if (CheckCollisionPointRec(cursor, layout.clear)) {
+  if (checkCollisionPointRec(cursor, layout.clear)) {
     if (!session.input().empty()) {
       session.clearMessage();
       status.show("Message cleared");
     }
     return;
   }
-  if (CheckCollisionPointRec(cursor, layout.reset)) {
+  if (checkCollisionPointRec(cursor, layout.reset)) {
     session.reset();
     status.show("Machine reset to defaults");
+    layout = makeLayout(layout.screenWidth, layout.screenHeight,
+                        session.rotorCount());
     return;
   }
-  if (CheckCollisionPointRec(cursor, layout.clearPlugboard)) {
+  if (checkCollisionPointRec(cursor, layout.clearPlugboard)) {
     if (!session.plugPairs().empty() || session.selectedPlug()) {
       session.clearPlugboard();
       status.show("Plugboard cleared");
@@ -102,6 +124,8 @@ void handleClick(Session &session, const Layout &layout, InterfaceState &state,
     const auto count = static_cast<int>(session.rotorCount()) + delta;
     if (session.setRotorCount(static_cast<std::size_t>(count))) {
       status.show("Using " + std::to_string(count) + " rotors");
+      layout = makeLayout(layout.screenWidth, layout.screenHeight,
+                          session.rotorCount());
     }
     return;
   }
@@ -118,12 +142,12 @@ void handleClick(Session &session, const Layout &layout, InterfaceState &state,
   }
 
   for (int i = 0; i < 26; ++i) {
-    if (CheckCollisionPointCircle(cursor, layout.plugCenters[idx(i)],
+    if (checkCollisionPointCircle(cursor, layout.plugCenters[idx(i)],
                                   layout.plugRadius)) {
       handlePlug(session, status, i);
       return;
     }
-    if (CheckCollisionPointRec(cursor, layout.keys[idx(i)])) {
+    if (checkCollisionPointRec(cursor, layout.keys[idx(i)])) {
       typeLetter(session, status, indexToChar(i));
       return;
     }
@@ -134,50 +158,90 @@ void handleClick(Session &session, const Layout &layout, InterfaceState &state,
 
 void Status::show(std::string_view value) {
   message = value;
-  expiresAt = GetTime() + 3.5;
+  expiresAt = std::chrono::steady_clock::now() + std::chrono::milliseconds(3500);
 }
 
 std::string_view Status::current() const {
-  return GetTime() < expiresAt ? std::string_view{message} : std::string_view{};
+  return !isExpired() ? std::string_view{message} : std::string_view{};
 }
 
-void handleInput(Session &session, const Layout &layout,
-                 InterfaceState &state) {
-  if (state.photoOpen) {
-    const Vector2 cursor = GetMousePosition();
-    const bool clicked = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
-    if (IsKeyPressed(KEY_ESCAPE) ||
-        (clicked && (CheckCollisionPointRec(cursor, layout.closePhoto) ||
-                     !CheckCollisionPointRec(cursor, layout.photoViewer)))) {
-      state.photoOpen = false;
+bool Status::isExpired() const {
+  return std::chrono::steady_clock::now() >= expiresAt;
+}
+
+double Status::secondsRemaining() const {
+  if (isExpired()) {
+    return 0.0;
+  }
+  const auto diff = expiresAt - std::chrono::steady_clock::now();
+  return std::chrono::duration<double>(diff).count();
+}
+
+bool handleEvent(Session &session, Layout &layout, InterfaceState &state,
+                 const InputEvent &event, const PlatformContext &platform,
+                 bool &shouldClose) {
+  switch (event.type) {
+  case EventType::Key: {
+    if (event.action == ActionPress || event.action == ActionRepeat) {
+      if (event.key == KeyEscape) {
+        if (state.photoOpen) {
+          state.photoOpen = false;
+        } else {
+          shouldClose = true;
+        }
+        return true;
+      }
+      if (event.key == KeyBackspace) {
+        session.backspace();
+        return true;
+      }
+      const bool control = (event.mods & ModControl) != 0;
+      if (control && (event.key == KeyC || event.key == 'c')) {
+        copyOutput(session, state.status, platform);
+        return true;
+      }
+      if (control && (event.key == KeyV || event.key == 'v')) {
+        pasteInput(session, state.status, platform);
+        return true;
+      }
     }
-    return;
+    return false;
   }
-  if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-    handleClick(session, layout, state, GetMousePosition());
-    if (state.photoOpen) {
-      return;
+  case EventType::Char: {
+    const bool control = (event.mods & ModControl) != 0;
+    if (control) {
+      return false;
     }
-  }
-  if (IsKeyPressed(KEY_BACKSPACE)) {
-    session.backspace();
-  }
-  const bool control =
-      IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
-  if (control && IsKeyPressed(KEY_C)) {
-    copyOutput(session, state.status);
-  }
-  if (control && IsKeyPressed(KEY_V)) {
-    pasteInput(session, state.status);
-  }
-  for (int letter = GetCharPressed(); letter > 0; letter = GetCharPressed()) {
-    if (letter >= 'a' && letter <= 'z') {
-      letter += 'A' - 'a';
+    uint32_t cp = event.codepoint;
+    if (cp >= 'a' && cp <= 'z') {
+      cp = cp - 'a' + 'A';
     }
-    if (!control && letter >= 'A' && letter <= 'Z') {
-      typeLetter(session, state.status, static_cast<char>(letter));
+    if (cp >= 'A' && cp <= 'Z') {
+      typeLetter(session, state.status, static_cast<char>(cp));
+      return true;
     }
+    return false;
   }
+  case EventType::MouseButton: {
+    if (event.button == MouseButtonLeft && event.action == ActionPress) {
+      handleClick(session, layout, state, event.cursor, platform);
+      return true;
+    }
+    return false;
+  }
+  case EventType::CursorPos: {
+    return true; // Cursor moved, trigger redraw for hover states
+  }
+  case EventType::WindowResize: {
+    layout = makeLayout(event.width, event.height, session.rotorCount());
+    return true;
+  }
+  case EventType::WindowClose: {
+    shouldClose = true;
+    return true;
+  }
+  }
+  return false;
 }
 
 } // namespace workbench

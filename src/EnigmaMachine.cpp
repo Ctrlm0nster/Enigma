@@ -10,30 +10,50 @@ const std::vector<Rotor> &EnigmaMachine::getRotors() const { return rotors; }
 const Plugboard &EnigmaMachine::getPlugboard() const { return plugboard; }
 
 void EnigmaMachine::stepRotors() {
-  if (rotors.empty())
-    return;
-
-  std::size_t n = rotors.size();
-  std::vector<bool> step(n, false);
-
-  step[n - 1] = true;
-
-  for (std::size_t i = n - 1; i > 0; --i) {
-    if (rotors[i].atNotch()) {
-      step[i - 1] = true;
-      step[i] = true;
-    }
-  }
-
-  for (std::size_t i = 0; i < n; ++i) {
-    if (step[i]) {
+  // Walk left to right so each notch check sees a rotor before it moves.
+  for (std::size_t i = 0; i < rotors.size(); ++i) {
+    if (i + 1 == rotors.size() || (i != 0 && rotors[i].atNotch()) ||
+        rotors[i + 1].atNotch()) {
       rotors[i].step();
     }
   }
 }
 
+int EnigmaMachine::scramble(int signal, SignalTrace *trace) const {
+  for (auto rotor = rotors.rbegin(); rotor != rotors.rend(); ++rotor) {
+    signal = rotor->forward(signal);
+    if (trace) {
+      trace->rotorForward.push_back(indexToChar(signal));
+    }
+  }
+  signal = reflector.reflect(signal);
+  if (trace) {
+    trace->reflected = indexToChar(signal);
+  }
+  for (const auto &rotor : rotors) {
+    signal = rotor.backward(signal);
+    if (trace) {
+      trace->rotorBackward.push_back(indexToChar(signal));
+    }
+  }
+  return signal;
+}
+
+EnigmaMachine::Permutation EnigmaMachine::scrambler() const {
+  Permutation map{};
+  for (int i = 0; i < 26; ++i) {
+    map[idx(i)] = static_cast<std::uint8_t>(scramble(i, nullptr));
+  }
+  return map;
+}
+
 char EnigmaMachine::processChar(char c) {
-  return processCharWithTrace(c).output;
+  if (c < 'A' || c > 'Z') {
+    return c;
+  }
+  stepRotors();
+  const int signal = plugboard.swap(charToIndex(c));
+  return indexToChar(plugboard.swap(scramble(signal, nullptr)));
 }
 
 SignalTrace EnigmaMachine::processCharWithTrace(char c) {
@@ -55,21 +75,8 @@ SignalTrace EnigmaMachine::processCharWithTrace(char c) {
   trace.plugboardForward = indexToChar(signal);
 
   trace.rotorForward.reserve(rotors.size());
-  for (std::size_t i = rotors.size(); i-- > 0;) {
-    signal = rotors[i].forward(signal);
-    trace.rotorForward.push_back(indexToChar(signal));
-  }
-
-  signal = reflector.reflect(signal);
-  trace.reflected = indexToChar(signal);
-
   trace.rotorBackward.reserve(rotors.size());
-  for (std::size_t i = 0; i < rotors.size(); ++i) {
-    signal = rotors[i].backward(signal);
-    trace.rotorBackward.push_back(indexToChar(signal));
-  }
-
-  signal = plugboard.swap(signal);
+  signal = plugboard.swap(scramble(signal, &trace));
   trace.output = indexToChar(signal);
 
   return trace;

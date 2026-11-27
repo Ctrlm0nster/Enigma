@@ -7,23 +7,6 @@
 namespace workbench {
 namespace {
 
-struct RotorSpec {
-  const char *wiring;
-  char notch;
-};
-
-// Rotor wirings and turnover window letters for types I through V.
-// https://enigmamuseum.com/rotwirg.htm
-constexpr std::array<RotorSpec, maximumRotorCount> rotors{{
-    {"EKMFLGDQVZNTOWYHXUSPAIBRCJ", 'Q'},
-    {"AJDKSIRUXBLHWTMCQGZNPYFVOE", 'E'},
-    {"BDFHJLCPRTXVZNYEIWGAKMUSQO", 'V'},
-    {"ESOVPZJAYQUIRHXLNFTGKDCMWB", 'J'},
-    {"VZBRGITYUPSDNHLXAWMJQOFECK", 'Z'},
-}};
-constexpr auto reflectorB = "YRUHQSLDPXNGOKMIEBFZCWVJAT";
-constexpr std::size_t plugLimit = 10;
-
 bool usesSocket(const std::pair<int, int> &pair, int letter) {
   return pair.first == letter || pair.second == letter;
 }
@@ -35,19 +18,25 @@ Session::Session()
                  {charToIndex('B'), charToIndex('Y')}},
       machine_(makeMachine()) {}
 
+enigma::MachineSettings Session::settings() const {
+  return {rotorCount_, starts_, rings_, plugPairs_};
+}
+
+void Session::applySettings(const enigma::MachineSettings &settings) {
+  auto replacement = *this;
+  replacement.rotorCount_ = settings.rotorCount;
+  replacement.plugPairs_ = settings.plugPairs;
+  replacement.selectedPlug_.reset();
+  if (settings.rotorCount >= minimumRotorCount && settings.rotorCount <= maximumRotorCount) {
+    std::copy_n(settings.starts.begin(), settings.rotorCount, replacement.starts_.begin());
+    std::copy_n(settings.rings.begin(), settings.rotorCount, replacement.rings_.begin());
+  }
+  replacement.replay();
+  *this = std::move(replacement);
+}
+
 EnigmaMachine Session::makeMachine() const {
-  std::vector<Rotor> wheels;
-  wheels.reserve(rotorCount_);
-  for (std::size_t i = 0; i < rotorCount_; ++i) {
-    Rotor rotor(rotors[i].wiring, rotors[i].notch, rings_[i]);
-    rotor.setPosition(starts_[i]);
-    wheels.push_back(rotor);
-  }
-  Plugboard plugboard;
-  for (const auto &[first, second] : plugPairs_) {
-    plugboard.addWire(first, second);
-  }
-  return EnigmaMachine(plugboard, std::move(wheels), Reflector(reflectorB));
+  return enigma::makeMachine(settings());
 }
 
 void Session::encryptLetter(char letter) {
@@ -82,12 +71,9 @@ std::size_t Session::paste(std::string_view text) {
   // The view may refer to either tape, which typing can reallocate.
   std::string accepted;
   accepted.reserve(std::min(remaining, text.size()));
-  for (char character : text) {
-    if (character >= 'a' && character <= 'z') {
-      character = static_cast<char>(character + ('A' - 'a'));
-    }
-    if (character >= 'A' && character <= 'Z') {
-      accepted.push_back(character);
+  for (const char character : text) {
+    if (const char letter = enigma::normalizeLetter(character); letter != 0) {
+      accepted.push_back(letter);
       if (accepted.size() == remaining) {
         break;
       }
@@ -161,7 +147,7 @@ PlugAction Session::selectPlug(int letter) {
   if (first == letter) {
     return PlugAction::Cancelled;
   }
-  if (plugPairs_.size() >= plugLimit && !isPlugConnected(letter)) {
+  if (plugPairs_.size() >= enigma::plugLimit && !isPlugConnected(letter)) {
     return PlugAction::LimitReached;
   }
 

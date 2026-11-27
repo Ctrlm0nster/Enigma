@@ -42,6 +42,8 @@ all pairs. The Workbench supports ten leads.
 
 ## Decipher a message {#decipher_message}
 
+Open **Decipher** for a known key or a crib-based Bombe search. @subpage bombe_guide "Decipher and Bombe search"
+
 1. Copy the ciphertext and record the rotor count, **Start** and **Ring**
    values for each rotor, and the plugboard pairs.
 2. Set up the machine with those settings. If you are using the same session,

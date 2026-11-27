@@ -9,22 +9,7 @@ Use modern cryptography to protect sensitive messages.
 | --- | --- |
 | Pasting from the same session | A paste could read freed memory if the source was the session's own plaintext or ciphertext. The session now collects the accepted letters before changing either tape. |
 | Invalid rotor or reflector wiring | Repeated rotor contacts could leave the reverse wiring incomplete. A reflector with nonreciprocal pairs could break deciphering. Both constructors now reject invalid wiring. |
-
-## Open issue
-
-On Linux, the current Raylib 5.0 build can crash at startup if a graphics
-display is unavailable. Raylib 5.0 tries to initialize OpenGL after GLFW
-initialization fails. A local build with Raylib 6.0 reached Enigma's error
-handler and exited with code `1` and the message
-`Enigma Workbench could not open a graphics window.`
-[Raylib 6.0 startup code](https://github.com/raysan5/raylib/blob/6.0/src/rcore.c#L679-L689)
-
-To check startup without a configured display, build the application and run
-the following on Linux.
-
-```sh
-env -u DISPLAY -u WAYLAND_DISPLAY ./build/mise/Enigma
-```
+| Startup crash on unavailable display | On Linux, Raylib 5.0 crashed at startup if a graphics display was unavailable. With the Vulkan 1.3 and GLFW architecture, GLFW initialization and display availability are verified first; failures report `Enigma Workbench could not open a graphics window.` and exit cleanly with code `1`. |
 
 ## Verify the fixes
 

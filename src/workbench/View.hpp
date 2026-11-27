@@ -1,55 +1,66 @@
 /**
  * @file View.hpp
- * @brief Raylib rendering routines and asset management for Enigma Workbench.
+ * @brief Workbench view rendering routines and asset management.
  */
 
 #pragma once
 
-#include "raylib.h"
+#include "DrawCommand.hpp"
+#include "FontAtlas.hpp"
+#include "Geometry.hpp"
+
+#include <string>
 
 namespace workbench {
 
 class Session;
 struct Layout;
 struct InterfaceState;
+class VulkanRenderer;
 
 /**
  * @struct Assets
  * @brief Bundled fonts and graphic textures used by the workbench interface.
  */
 struct Assets {
-  Font title;       ///< Serif headline font (Instrument Serif).
-  Font ui;          ///< Modern sans font (Montserrat).
-  Font mono;        ///< Monospace telemetry and rotor font (JetBrains Mono).
-  Texture2D photo;  ///< Historical Enigma photograph from Imperial War Museum.
+  FontAtlas title;
+  FontAtlas ui;
+  FontAtlas mono;
+  uint32_t photoTextureId{0};
+  int photoWidth{0};
+  int photoHeight{0};
+  bool photoAvailable{false};
+  bool fontsLoaded{false};
 };
 
 /**
- * @brief Loads application fonts and texture assets from the assets directory.
- *
- * @return Populated Assets structure.
+ * @brief Resolves the directory where assets reside.
  */
-Assets loadAssets();
+std::string resolveAssetDirectory();
 
 /**
- * @brief Unloads graphics and fonts from GPU/CPU memory upon exit.
- *
- * @param assets Reference to assets structure.
+ * @brief Loads a font with automatic fallback to other bundled fonts if primary is missing.
  */
-void unloadAssets(const Assets &assets);
+bool loadFontWithFallback(FontAtlas &atlas, const std::string &root,
+                          const std::string &primaryFace, int size,
+                          std::span<const uint32_t> extraCodepoints = {});
 
 /**
- * @brief Draws the entire workbench screen in a single frame pass.
- *
- * Renders message readouts, electrical signal trace, lampboard, keyboard,
- * rotor adjustment controls, plugboard sockets and wires, and modal overlays.
- *
- * @param session Current simulation session.
- * @param layout Geometry bounding boxes.
- * @param assets Loaded fonts and textures.
- * @param state Active status and modal visibility.
+ * @brief Loads application fonts and texture assets and uploads them to the GPU.
+ */
+Assets loadAssets(VulkanRenderer &renderer, const std::string &assetDir = "");
+
+/**
+ * @brief Unloads graphics and fonts from GPU memory upon exit.
+ */
+void unloadAssets(VulkanRenderer &renderer, const Assets &assets);
+
+/**
+ * @brief Draws the entire workbench screen by emitting 2D commands into DrawList.
  */
 void drawWorkbench(const Session &session, const Layout &layout,
-                   const Assets &assets, const InterfaceState &state);
+                   const Assets &assets, const InterfaceState &state,
+                   Vector2 cursor, DrawList &drawList, int screenWidth,
+                   int screenHeight);
 
 } // namespace workbench

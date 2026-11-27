@@ -37,7 +37,6 @@ compile_commands.json
 *.gcov
 
 # Dependencies and vendored sources
-/libs/raylib/
 /libs/Catch2/
 _deps/
 

@@ -11,6 +11,8 @@
 #include "Plugboard.hpp"
 #include "Reflector.hpp"
 #include "Rotor.hpp"
+#include <array>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -59,16 +61,11 @@ private:
   std::vector<Rotor> rotors;   ///< Ordered rotors (index 0 = slow/left, back = fast/right).
   Reflector reflector;         ///< Fixed reflector.
 
-  /**
-   * @brief Advances rotor positions according to Enigma mechanical pawls.
-   *
-   * The rightmost rotor advances on every letter. Each rotor at its notch,
-   * except the leftmost rotor, also advances itself and its left neighbor.
-   * Which rotors move is decided before any positions change.
-   */
-  void stepRotors();
+  int scramble(int signal, SignalTrace *trace) const;
 
 public:
+  using Permutation = std::array<std::uint8_t, 26>;
+
   /**
    * @brief Assembles an Enigma machine with plugboard, rotor sequence, and reflector.
    *
@@ -91,6 +88,12 @@ public:
    * @return Const reference to internal plugboard.
    */
   const Plugboard &getPlugboard() const;
+
+  /** Advances the rotors one keypress using the current turnover positions. */
+  void stepRotors();
+
+  /** Returns the current rotor and reflector mapping before the plugboard. */
+  Permutation scrambler() const;
 
   /**
    * @brief Encrypts or decrypts a single character.

@@ -1,6 +1,6 @@
 # Enigma Workbench
 
-An interactive Enigma machine simulator built with C++20 and Raylib. The app
+An interactive Enigma machine simulator built with C++20 and Vulkan 1.3. The app
 uses the historical I–V rotor wirings, their turnover notches, Reflector B,
 ring settings, double stepping, and a configurable plugboard.
 
@@ -29,9 +29,9 @@ ring settings, double stepping, and a configurable plugboard.
 
 ## Build and run
 
-You need [Mise](https://mise.jdx.dev/getting-started.html), a C++20 compiler,
-and the platform libraries required by Raylib. Mise installs the pinned CMake
-and Ninja versions.
+Install a C++20 compiler, a Vulkan 1.3-capable driver, and development packages
+for Vulkan, GLFW, FreeType, and libjpeg-turbo. Install `glslc` to compile the
+shaders. Mise installs the pinned CMake and Ninja versions. [Mise installation](https://mise.jdx.dev/getting-started.html)
 
 ```bash
 mise trust
@@ -42,9 +42,8 @@ mise run run
 Use `mise run build` to build without launching the app. Mise writes build
 output to `build/mise/`.
 
-CMake fetches Raylib 5.0 and Catch2 3.5.2 on first configuration. For an offline
-build, place source copies of those versions in `libs/raylib/` and
-`libs/Catch2/` before configuring.
+CMake fetches Catch2 3.5.2 for the tests. For an offline build, place a source
+copy of Catch2 in `libs/Catch2/` before configuring.
 
 Run `mise run configure` before opening the project with clangd. It generates
 the compilation database that `.clangd` uses.
@@ -85,8 +84,9 @@ under its [MIT license](documentation/theme/LICENSE).
 
 - `EnigmaCore` contains character mapping, plugboard, rotor, reflector, stepping,
   encryption, and signal-trace logic.
-- `src/main.cpp` runs the Raylib application. The files in `src/workbench/`
-  handle the message and machine state, input, layout, and drawing.
+- `src/main.cpp` runs the desktop application loop with GLFW and Vulkan 1.3.
+  The files in `src/workbench/` handle message state, input events, layout,
+  2D draw batching, and Vulkan GPU rendering.
 - `test/test_main.cpp` contains the Catch2 test suite.
 
 ## License
@@ -97,7 +97,9 @@ See [NOTICE](NOTICE) for the project's copyright notice.
 
 The bundled dependencies and fonts retain their own licenses.
 
-- [Raylib 5.0](https://github.com/raysan5/raylib/blob/5.0/LICENSE)
+- [GLFW](https://www.glfw.org/license.html)
+- [FreeType](https://freetype.org/FTL.TXT)
+- [libjpeg-turbo](https://github.com/libjpeg-turbo/libjpeg-turbo/blob/main/LICENSE.md)
 - [Catch2 3.5.2](https://github.com/catchorg/Catch2/blob/v3.5.2/LICENSE.txt)
 - [Montserrat](assets/Montserrat-OFL.txt)
 - [JetBrains Mono](assets/JetBrainsMono-OFL.txt)

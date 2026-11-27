@@ -18,7 +18,7 @@
 
 ## Quick start {#quick_start}
 
-Install Mise, a C++20 compiler, and the system libraries required by Raylib.
+Install Mise, a C++20 compiler, and the system Vulkan, GLFW, FreeType, and JPEG development packages.
 From the repository directory, run the following commands. [Build prerequisites](https://github.com/Ctrlm0nster/Enigma#build-and-run)
 
 ```sh
@@ -47,7 +47,7 @@ from your chosen starting positions each time you change the rotor count.
 ## More documentation {#more_documentation}
 
 - @subpage docs_hub "Documentation hub" for operating instructions, the rotor model, and component guides.
-- @ref architecture "Architecture" for the layout of the C++20 core and Raylib workbench.
+- @ref architecture "Architecture" for the layout of the C++20 core and Vulkan workbench.
 - @ref EnigmaMachine "EnigmaMachine API" for the cipher core and its trace methods.
 
 Enigma Workbench is released under GPL-3.0-only. [License](https://github.com/Ctrlm0nster/Enigma/blob/master/LICENSE) · [Photo and font credits](https://github.com/Ctrlm0nster/Enigma/blob/master/assets/ATTRIBUTION.md)

@@ -8,8 +8,8 @@
 
 #pragma once
 
+#include "Geometry.hpp"
 #include "Session.hpp"
-#include "raylib.h"
 
 #include <array>
 
@@ -17,7 +17,6 @@ namespace workbench {
 
 inline constexpr int minimumWidth = 1080;   ///< Minimum supported window width.
 inline constexpr int minimumHeight = 720;   ///< Minimum supported window height.
-inline constexpr float margin = 24;         ///< Standard boundary margin.
 
 /**
  * @struct Stepper
@@ -44,6 +43,8 @@ struct RotorRow {
  * @brief Comprehensive UI coordinate and bounding box hierarchy.
  */
 struct Layout {
+  int screenWidth{0};       ///< Stored window pixel width.
+  int screenHeight{0};      ///< Stored window pixel height.
   Rectangle content;        ///< Centered main content area.
   Rectangle message;        ///< Tape display card.
   Rectangle signal;         ///< Electrical signal trace card.

@@ -17,7 +17,7 @@
 
 ## Work on the code {#hub_development}
 
-- @subpage architecture "Architecture" maps the C++ cipher core and the Raylib workbench.
+- @subpage architecture "Architecture" maps the C++ cipher core and the Vulkan workbench.
 - @subpage enigmamachine_guide "Cipher core" explains how to process letters and read the trace from C++.
 - @subpage charactermap_guide "Character mapping" covers the internal signal representation.
 - @ref workbench::Session "Session API" covers the message tape, settings, and live machine state.
