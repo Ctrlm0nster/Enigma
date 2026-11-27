@@ -1,23 +1,28 @@
-# Documentation hub {#docs_hub}
+# Documentation Hub {#docs_hub}
 
 @tableofcontents
 
-## Use the Workbench {#hub_use}
+Welcome to the Enigma Workbench technical documentation and C++ API reference.
 
-- @ref quick_start "Quick start" builds and opens the application with Mise.
-- @subpage workbench_guide "Workbench guide" covers message entry, adding and removing rotors, plugboard leads, and deciphering a message.
+## Operating the Workbench {#hub_use}
 
-## Understand the machine {#hub_machine}
+- @ref quick_start "Quick start": Build and launch the application using Mise and Vulkan 1.3.
+- @subpage workbench_guide "Workbench guide": Comprehensive guide to the physical lampboard, typewriter keycaps, procedural audio engine, WWII Tagesschlüssel presets, knurled rotors, plugboard patching, and message editing.
+- @subpage bombe_guide "Decipher and Bombe search": Decipher messages with known keys, perform Turing-Welchman Bombe constraint searches with cribs, monitor live scrambler drums, and evaluate cryptanalysis throughput.
 
-- @subpage signal_flow "Signal path" follows a letter from the keyboard to the lamp.
-- @subpage stepping_mechanism "Rotor stepping" shows when each rotor moves and walks through a double step.
-- @subpage rotor_guide "Rotors" lists the wirings and turnover positions for I–V.
-- @subpage plugboard_guide "Plugboard" explains the letter swaps at each end of the signal path.
-- @subpage reflector_guide "Reflector B" describes the fixed return wiring.
+## Understanding the Machine {#hub_machine}
 
-## Work on the code {#hub_development}
+- @subpage signal_flow "Signal path and circuit flow": Complete electrical sequence from typewriter key through plugboard, rotors, reflector, and lampboard.
+- @subpage stepping_mechanism "Rotor stepping mechanism": Mechanical pawl-and-ratchet stepping, dual-notch naval turnovers, non-stepping Greek rotors, and the double-stepping anomaly.
+- @subpage rotor_guide "Rotors (Walzen)": Historical wirings and turnover notches for Rotors I through VIII and Greek rotors Beta and Gamma.
+- @subpage reflector_guide "Reflectors (Umkehrwalzen)": Historical wirings for Reflectors A, B, C, Thin Bruno, and Thin Caesar, and the mathematical properties of involutory reflection.
+- @subpage plugboard_guide "Plugboard (Steckerbrett)": Physical catenary patch cords, socket manipulation, and cryptographic permutation space.
 
-- @subpage architecture "Architecture" maps the C++ cipher core and the Vulkan workbench.
-- @subpage enigmamachine_guide "Cipher core" explains how to process letters and read the trace from C++.
-- @subpage charactermap_guide "Character mapping" covers the internal signal representation.
-- @ref workbench::Session "Session API" covers the message tape, settings, and live machine state.
+## Architecture and C++ Development {#hub_development}
+
+- @subpage architecture "Architecture overview": Modular structure of `EnigmaCore`, the Bombe solver, procedural audio engine, and Vulkan 1.3 dynamic rendering pipeline.
+- @subpage enigmamachine_guide "Cipher core API": Instantiating `EnigmaMachine`, running signal traces, using factory presets, and modeling Kriegsmarine M4.
+- @subpage charactermap_guide "Character mapping": Internal 0-based contact indexing and character normalization utilities.
+- @ref enigma::MachineSettings "MachineSettings struct": Data structure describing full Enigma configurations.
+- @ref workbench::Session "workbench::Session": Application session managing live message state, rotor configuration, and replay history.
+- @ref workbench::AudioEngine "workbench::AudioEngine": Procedural mathematical audio synthesis engine.

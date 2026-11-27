@@ -14,7 +14,6 @@ namespace {
 
 constexpr int alphabetSize = 26;
 constexpr int unassigned = -1;
-constexpr std::size_t progressInterval = 256;
 
 std::string normalize(std::string_view text, std::string_view name) {
   std::string result;
@@ -114,6 +113,34 @@ void decodeWindows(std::size_t encoded, enigma::MachineSettings &settings) {
   }
 }
 
+struct Profile {
+  std::array<int, rotorCount> rotors;
+  int reflector;
+};
+
+std::vector<Profile> searchProfiles(const SearchRequest &request) {
+  std::vector<Profile> profiles;
+  const int firstReflector = request.reflectors == ReflectorScope::C ? 2 : 1;
+  const int lastReflector = request.reflectors == ReflectorScope::B ? 1 : 2;
+  for (int reflector = firstReflector; reflector <= lastReflector; ++reflector) {
+    if (request.rotors == RotorScope::Fixed) {
+      profiles.push_back({{0, 1, 2}, reflector});
+      continue;
+    }
+    const int count = request.rotors == RotorScope::FirstFive ? 5 : 3;
+    for (int left = 0; left < count; ++left) {
+      for (int middle = 0; middle < count; ++middle) {
+        for (int right = 0; right < count; ++right) {
+          if (left != middle && left != right && middle != right) {
+            profiles.push_back({{left, middle, right}, reflector});
+          }
+        }
+      }
+    }
+  }
+  return profiles;
+}
+
 using Scramblers =
     std::array<const EnigmaMachine::Permutation *, enigma::messageLimit>;
 
@@ -150,26 +177,57 @@ class Search {
 public:
   Search(const std::string &ciphertext, std::string_view crib,
          const enigma::MachineSettings &settings, SearchLimits limits,
-         std::stop_token stop, const ProgressCallback &callback)
+         std::stop_token stop, const ProgressCallback &callback,
+         const CandidateCallback &candidateCallback)
       : ciphertext_(ciphertext), crib_(crib), settings_(settings),
-        limits_(limits), stop_(stop), callback_(callback) {}
+        limits_(limits), stop_(stop), callback_(callback),
+        candidateCallback_(candidateCallback) {}
 
   SearchResult run(const std::vector<Menu> &menus, std::size_t alignmentCount,
-                   const Board &seed, bool boardKnown) {
+                   const Board &seed, bool boardKnown,
+                   const std::vector<Profile> &profiles) {
     result_.progress.alignments = alignmentCount;
     result_.progress.viableAlignments = menus.size();
-    publish();
-    if (!interrupted() && !menus.empty()) {
-      const auto states = rotorTable();
-      if (!interrupted()) {
-        testStarts(menus, states, seed, boardKnown);
-      }
+    result_.progress.profiles = profiles.size();
+    result_.progress.totalSettings = profiles.size() * menus.size() * startCount;
+    if (!menus.empty()) {
+      runProfiles(menus, seed, boardKnown, profiles);
     }
+    interrupted();
+    result_.progress.phase = SearchPhase::Finished;
     publish();
     return std::move(result_);
   }
 
 private:
+  void runProfiles(const std::vector<Menu> &menus, const Board &seed,
+                   bool boardKnown, const std::vector<Profile> &profiles) {
+    auto &progress = result_.progress;
+    for (const auto &profile : profiles) {
+      if (interrupted()) {
+        return;
+      }
+      if (progress.work == limits_.work) {
+        result_.status = SearchStatus::WorkLimit;
+        return;
+      }
+      ++progress.profile;
+      progress.rotors = profile.rotors;
+      progress.reflector = profile.reflector;
+      progress.phase = SearchPhase::Preparing;
+      progress.start.reset();
+      progress.cribOffset.reset();
+      std::ranges::copy(profile.rotors, settings_.rotorTypes.begin());
+      settings_.reflectorIndex = profile.reflector;
+      publish();
+      const auto states = rotorTable();
+      if (!interrupted()) {
+        progress.phase = SearchPhase::Checking;
+        testStarts(menus, states, seed, boardKnown);
+      }
+    }
+  }
+
   bool interrupted() {
     if (result_.status == SearchStatus::Complete && stop_.stop_requested()) {
       result_.status = SearchStatus::Cancelled;
@@ -191,11 +249,15 @@ private:
       result_.status = SearchStatus::WorkLimit;
       return false;
     }
-    ++result_.progress.work;
-    if (result_.progress.work % progressInterval == 0) {
+    if (result_.progress.work != 0 &&
+        result_.progress.work % checkpointWork == 0) {
       publish();
+      if (interrupted()) {
+        return false;
+      }
     }
-    return !interrupted();
+    ++result_.progress.work;
+    return true;
   }
 
   std::vector<RotorState> rotorTable() {
@@ -227,6 +289,8 @@ private:
         if (!spendWork()) {
           return;
         }
+        result_.progress.start = start;
+        result_.progress.cribOffset = menu.offset;
         ++result_.progress.settingsChecked;
         if (boardKnown) {
           const bool matches =
@@ -289,6 +353,9 @@ private:
     }
     result_.candidates.push_back(std::move(candidate));
     result_.progress.matches = result_.candidates.size();
+    if (candidateCallback_) {
+      candidateCallback_(result_.candidates.back());
+    }
     if (result_.candidates.size() == limits_.results) {
       result_.status = SearchStatus::ResultLimit;
     }
@@ -300,6 +367,7 @@ private:
   SearchLimits limits_;
   std::stop_token stop_;
   const ProgressCallback &callback_;
+  const CandidateCallback &candidateCallback_;
   SearchResult result_;
 };
 
@@ -312,7 +380,8 @@ std::string decipher(std::string_view ciphertext,
 }
 
 SearchResult search(const SearchRequest &request, SearchLimits limits,
-                    std::stop_token stop, const ProgressCallback &progress) {
+                    std::stop_token stop, const ProgressCallback &progress,
+                    const CandidateCallback &candidate) {
   if (limits.work == 0 || limits.results == 0) {
     throw std::invalid_argument("Search limits must be positive");
   }
@@ -355,8 +424,8 @@ SearchResult search(const SearchRequest &request, SearchLimits limits,
       menus.push_back(std::move(*menu));
     }
   }
-  return Search(ciphertext, crib, settings, limits, stop, progress)
-      .run(menus, last - first + 1, seed, boardKnown);
+  return Search(ciphertext, crib, settings, limits, stop, progress, candidate)
+      .run(menus, last - first + 1, seed, boardKnown, searchProfiles(request));
 }
 
 } // namespace bombe

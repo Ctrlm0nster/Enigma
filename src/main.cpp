@@ -193,7 +193,7 @@ int main() {
     queue.damaged = false;
 
     for (const auto &event : currentEvents) {
-      if (!state.photoOpen) {
+      if (!state.photoOpen && !state.presetsOpen) {
         const auto rotorCount = session.rotorCount();
         if (const auto handled = decipher.handle(event, platform, session,
                                                   queue.windowWidth, queue.windowHeight)) {
@@ -230,7 +230,8 @@ int main() {
                         drawList, queue.windowWidth, queue.windowHeight, &audio);
         }
         if (!state.photoOpen) {
-          decipher.draw(drawList, assets, queue.lastCursorPos, queue.windowWidth,
+          const auto cursor = state.presetsOpen ? Vector2{-1, -1} : queue.lastCursorPos;
+          decipher.draw(drawList, assets, cursor, queue.windowWidth,
                         queue.windowHeight);
         }
         renderer.renderDrawList(drawList, queue.windowWidth, queue.windowHeight);
@@ -242,7 +243,7 @@ int main() {
     }
 
     if (queue.events.empty()) {
-      if (decipher.isRunning()) {
+      if (decipher.isRunning() && !decipher.isPaused()) {
         glfwWaitEventsTimeout(0.04);
       } else if (!state.status.isExpired()) {
         const double timeout = state.status.secondsRemaining();

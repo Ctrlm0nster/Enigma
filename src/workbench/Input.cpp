@@ -99,14 +99,9 @@ void handleClick(Session &session, Layout &layout, InterfaceState &state,
 
   if (state.presetsOpen) {
     const auto presets = enigma::historicalPresets();
-    const Rectangle menuBounds{layout.presetsButton.x,
-                               layout.presetsButton.y + layout.presetsButton.height + 4,
-                               330, static_cast<float>(presets.size() * 48 + 32)};
-    if (checkCollisionPointRec(cursor, menuBounds)) {
+    if (checkCollisionPointRec(cursor, layout.presetsMenu)) {
       for (std::size_t i = 0; i < presets.size(); ++i) {
-        const Rectangle itemBounds{menuBounds.x + 6, menuBounds.y + 28 + static_cast<float>(i * 48),
-                                   menuBounds.width - 12, 44};
-        if (checkCollisionPointRec(cursor, itemBounds)) {
+        if (checkCollisionPointRec(cursor, layout.presetRow(i))) {
           session.loadPreset(i);
           layout = makeLayout(layout.screenWidth, layout.screenHeight, session.rotorCount());
           state.presetsOpen = false;
@@ -170,6 +165,16 @@ void handleClick(Session &session, Layout &layout, InterfaceState &state,
     return;
   }
 
+  if (checkCollisionPointRec(cursor, layout.reflectorButton)) {
+    const int nextRefl = (session.reflectorIndex() + 1) % static_cast<int>(enigma::reflectorNames.size());
+    session.setReflectorIndex(nextRefl);
+    if (audio) {
+      audio->play(SoundEffect::RotorStep);
+    }
+    status.show(std::string("Reflector changed to ") + enigma::reflectorNames[nextRefl]);
+    return;
+  }
+
   if (const int delta = stepperDelta(layout.rotorCountControl, cursor);
       delta != 0) {
     const auto count = static_cast<int>(session.rotorCount()) + delta;
@@ -186,6 +191,15 @@ void handleClick(Session &session, Layout &layout, InterfaceState &state,
 
   for (std::size_t i = 0; i < session.rotorCount(); ++i) {
     const auto &row = layout.rotorRows[i];
+    if (checkCollisionPointRec(cursor, row.modelButton)) {
+      const int nextType = (session.rotorTypeAt(i) + 1) % static_cast<int>(enigma::rotorNames.size());
+      session.setRotorType(i, nextType);
+      if (audio) {
+        audio->play(SoundEffect::RotorStep);
+      }
+      status.show(std::string("Rotor ") + std::to_string(i + 1) + " changed to " + enigma::rotorNames[nextType]);
+      return;
+    }
     const int startDelta = stepperDelta(row.start, cursor);
     const int ringDelta = stepperDelta(row.ring, cursor);
     if (startDelta != 0 || ringDelta != 0) {
@@ -255,6 +269,9 @@ bool handleEvent(Session &session, Layout &layout, InterfaceState &state,
         }
         return true;
       }
+      if (state.presetsOpen || state.photoOpen) {
+        return false;
+      }
       if (event.key == KeyBackspace) {
         session.backspace();
         return true;
@@ -273,7 +290,7 @@ bool handleEvent(Session &session, Layout &layout, InterfaceState &state,
   }
   case EventType::Char: {
     const bool control = (event.mods & ModControl) != 0;
-    if (control) {
+    if (control || state.presetsOpen || state.photoOpen) {
       return false;
     }
     uint32_t cp = event.codepoint;

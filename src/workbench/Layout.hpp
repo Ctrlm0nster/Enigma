@@ -33,6 +33,7 @@ struct Stepper {
  */
 struct RotorRow {
   Rectangle bounds;      ///< Total bounding box of the rotor row.
+  Rectangle modelButton; ///< Rotor type selector button (e.g. I..VIII, Beta, Gamma).
   Stepper start;         ///< Starting position adjustment stepper.
   Stepper ring;          ///< Ringstellung adjustment stepper.
   Rectangle liveWindow;  ///< Currently visible live letter window.
@@ -50,11 +51,14 @@ struct Layout {
   Rectangle signal;         ///< Electrical signal trace card.
   Rectangle lampboard;      ///< Dedicated 26-bulb incandescent lampboard card.
   Rectangle keyboard;       ///< Typewriter keyboard card.
-  Rectangle machine;        ///< Settings control panel card.
+  Rectangle machine;        ///< Bounds of the settings column.
+  Rectangle rotors;         ///< Rotor settings panel.
+  Rectangle plugboard;      ///< Plugboard panel.
   Rectangle photo;          ///< Museum photo preview box.
   Rectangle openPhoto;      ///< Open photo modal button.
   Rectangle soundToggle;    ///< Audio mute/unmute toggle button.
   Rectangle presetsButton;  ///< WWII Tagesschlüssel presets button.
+  Rectangle reflectorButton; ///< Interactive reflector selector button.
   Rectangle photoViewer;    ///< Full photo modal window.
   Rectangle closePhoto;     ///< Close photo modal button.
   Rectangle paste;          ///< Paste clipboard button.
@@ -62,6 +66,7 @@ struct Layout {
   Rectangle clear;          ///< Clear tape button.
   Rectangle reset;          ///< Reset machine button.
   Rectangle clearPlugboard; ///< Clear all plugboard leads button.
+  Rectangle presetsMenu;    ///< Historical presets menu bounds.
   Stepper rotorCountControl; ///< Add or remove the rightmost rotor.
 
   std::array<RotorRow, maximumRotorCount> rotorRows; ///< Active rotor rows come first.
@@ -71,9 +76,11 @@ struct Layout {
   std::array<Vector2, 26> plugCenters;        ///< Center coordinates for 26 plugboard sockets.
 
   float plugRadius;     ///< Radius for plugboard socket circles.
-  float rotorsTop;      ///< Y offset for rotors section.
-  float plugboardTop;   ///< Y offset for plugboard section.
+
+  Rectangle presetRow(std::size_t index) const;
 };
+
+Rectangle decipherLauncher(Rectangle content);
 
 /**
  * @brief Computes a complete UI layout given target window dimensions.

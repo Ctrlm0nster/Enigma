@@ -16,8 +16,18 @@
 
 namespace workbench {
 
-inline constexpr std::array<uint32_t, 5> controlGlyphs{0x00B7, 0x2013, 0x2026,
-                                                       0x2192, 0x2212};
+inline constexpr std::array<uint32_t, 10> controlGlyphs{
+    0x00B7, // ·
+    0x2013, // –
+    0x2026, // …
+    0x2192, // →
+    0x2212, // −
+    0x25BE, // ▾
+    0x25BC, // ▼
+    0x2014, // —
+    0x03B2, // β
+    0x03B3  // γ
+};
 
 /**
  * @brief Decodes the next UTF-8 codepoint from the string.

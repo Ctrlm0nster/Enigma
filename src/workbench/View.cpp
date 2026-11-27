@@ -133,6 +133,18 @@ std::string letterAt(int index) {
   return std::string(1, indexToChar(index));
 }
 
+const char *rotorName(const Session &session, std::size_t rotor) {
+  const auto model = static_cast<std::size_t>(session.rotorTypeAt(rotor));
+  return model < enigma::rotorNames.size() ? enigma::rotorNames[model]
+                                          : rotorNames[rotor];
+}
+
+const char *reflectorName(const Session &session) {
+  const auto model = static_cast<std::size_t>(session.reflectorIndex());
+  return model < enigma::reflectorNames.size() ? enigma::reflectorNames[model]
+                                               : enigma::reflectorNames[1];
+}
+
 void readout(const Assets &assets, Rectangle bounds, const std::string &label,
              const std::string &message, bool cipher, DrawList &drawList) {
   constexpr float captionWidth = 112;
@@ -174,8 +186,8 @@ void drawMessage(const Session &session, const Layout &layout,
   button(assets.ui, layout.copy, "Copy ciphertext", cursor, drawList,
          !session.output().empty(), Button::primary);
 
-  const Rectangle plain{bounds.x + 16, bounds.y + 57, bounds.width - 32, 74};
-  const Rectangle cipher{plain.x, bottom(plain) + 8, plain.width, plain.height};
+  const Rectangle plain{bounds.x + 16, bounds.y + 48, bounds.width - 32, 55};
+  const Rectangle cipher{plain.x, bottom(plain) + 7, plain.width, plain.height};
   readout(assets, plain, "Plaintext", session.input(), false, drawList);
   readout(assets, cipher, "Ciphertext", session.output(), true, drawList);
 }
@@ -188,19 +200,19 @@ void drawKey(Rectangle bounds, char letter, const Assets &assets, bool pressed,
   if (pressed) {
     keyCenter.y += 3.0F;
     drawList.addCircle({keyCenter.x, keyCenter.y + 2.0F}, radius, Color{5, 6, 8, 200});
-    drawList.addCircle(keyCenter, radius, Color{165, 170, 178, 255});
+    drawList.addCircle(keyCenter, radius, amberLow);
     drawList.addCircle(keyCenter, radius - 1.5F, Color{75, 78, 85, 255});
     drawList.addCircle(keyCenter, radius - 3.0F, Color{22, 24, 28, 255});
-    drawList.addCenteredText(assets.mono, std::string(1, letter), keyCenter,
-                             radius * 1.15F, amber);
+    drawList.addCenteredGlyph(assets.mono, letter, keyCenter,
+                             radius * 1.30F, amber);
   } else {
     drawList.addCircle({keyCenter.x, keyCenter.y + 5.0F}, radius + 0.5F, Color{6, 7, 9, 160});
-    drawList.addCircle(keyCenter, radius, over ? Color{220, 225, 235, 255} : Color{185, 190, 200, 255});
-    drawList.addCircle(keyCenter, radius - 1.5F, Color{95, 100, 110, 255});
+    drawList.addCircle(keyCenter, radius, over ? muted : keyEdge);
+    drawList.addCircle(keyCenter, radius - 1.5F, raised);
     drawList.addCircle(keyCenter, radius - 3.0F, over ? Color{38, 41, 47, 255} : Color{25, 27, 31, 255});
-    drawList.addCircle(keyCenter, radius - 5.0F, Color{45, 48, 55, 255});
-    drawList.addCenteredText(assets.mono, std::string(1, letter), keyCenter,
-                             radius * 1.15F, over ? amber : foreground);
+    drawList.addCircle(keyCenter, radius - 5.0F, over ? hoverFill : raised);
+    drawList.addCenteredGlyph(assets.mono, letter, keyCenter,
+                             radius * 1.30F, over ? amber : foreground);
   }
 }
 
@@ -210,45 +222,47 @@ void drawLampboard(const Session &session, const Layout &layout,
   drawList.addBox(bounds, panel);
   const float headingCenter = bounds.y + 20;
   const float headingY = assets.ui.centeredLineTop(headingCenter, type::section);
-  drawList.addText(assets.ui, "Lampboard  ·  Glühlampenfeld", {bounds.x + 18, headingY},
+  drawList.addText(assets.ui, "Lampboard", {bounds.x + 18, headingY},
                    type::section);
   const auto &trace = session.trace();
   if (trace) {
     const auto activity = std::string("Lit: ") + trace->output;
     rightText(assets.mono, activity, right(bounds) - 18, headingCenter,
               type::body, amber, drawList);
-  } else {
-    rightText(assets.ui, "Incandescent 26-bulb display", right(bounds) - 18,
-              headingCenter, type::caption, muted, drawList);
   }
-  drawList.addLine({bounds.x + 16, bounds.y + 38},
-                   {right(bounds) - 16, bounds.y + 38}, 1, border);
-  const Rectangle tray{bounds.x + 16, bounds.y + 45, bounds.width - 32,
-                       bounds.height - 54};
+  drawList.addLine({bounds.x + 16, bounds.y + 36},
+                   {right(bounds) - 16, bounds.y + 36}, 1, border);
+  const Rectangle tray{bounds.x + 16, bounds.y + 38, bounds.width - 32,
+                       bounds.height - 46};
   drawList.addBox(tray, well);
+
+  const float radius = layout.lampRadius;
+  if (trace) {
+    const auto lamp = layout.lampCenters[idx(charToIndex(trace->output))];
+    drawList.setScissor(insetBy(tray, 1));
+    drawList.addBloomDisc(lamp, radius * 0.7F, radius * 2.5F,
+                          Color{255, 170, 51, 135}, Color{255, 120, 20, 0});
+    drawList.addBloomDisc(lamp, radius * 0.3F, radius * 1.5F,
+                          Color{255, 215, 110, 195}, Color{255, 160, 40, 0});
+    drawList.resetScissor();
+  }
 
   for (int i = 0; i < 26; ++i) {
     const Vector2 lampCenter = layout.lampCenters[idx(i)];
     const char letter = indexToChar(i);
     const bool lit = trace && trace->output == letter;
-    const float radius = layout.lampRadius;
-
     if (lit) {
-      drawList.addBloomDisc(lampCenter, radius * 0.7F, radius * 2.8F,
-                            Color{255, 170, 51, 160}, Color{255, 120, 20, 0});
-      drawList.addBloomDisc(lampCenter, radius * 0.3F, radius * 1.5F,
-                            Color{255, 215, 110, 220}, Color{255, 160, 40, 0});
       drawList.addCircle(lampCenter, radius + 2.0F, Color{230, 170, 60, 255});
       drawList.addCircle(lampCenter, radius, Color{255, 235, 150, 255});
-      drawList.addCenteredText(assets.mono, std::string(1, letter), lampCenter,
-                               radius * 1.25F, Color{30, 20, 10, 255});
+      drawList.addCenteredGlyph(assets.mono, letter, lampCenter,
+                               radius * 1.35F, Color{30, 20, 10, 255});
     } else {
       drawList.addCircle(lampCenter, radius + 2.0F, Color{55, 48, 38, 255});
       drawList.addCircle(lampCenter, radius + 0.5F, Color{35, 30, 24, 255});
       drawList.addCircle(lampCenter, radius - 0.5F, Color{18, 16, 14, 255});
       drawList.addCircle(lampCenter, radius - 3.0F, Color{24, 22, 19, 255});
-      drawList.addCenteredText(assets.mono, std::string(1, letter), lampCenter,
-                               radius * 1.15F, Color{130, 118, 102, 180});
+      drawList.addCenteredGlyph(assets.mono, letter, lampCenter,
+                               radius * 1.25F, Color{161, 149, 133, 220});
     }
   }
 }
@@ -260,7 +274,7 @@ void drawKeyboard(const Session &session, const Layout &layout,
   drawList.addBox(bounds, panel);
   const float headingCenter = bounds.y + 20;
   const float headingY = assets.ui.centeredLineTop(headingCenter, type::section);
-  drawList.addText(assets.ui, "Keyboard  ·  Tastatur", {bounds.x + 18, headingY},
+  drawList.addText(assets.ui, "Keyboard", {bounds.x + 18, headingY},
                    type::section);
   const auto &trace = session.trace();
   if (state.pressedKey.has_value()) {
@@ -268,24 +282,23 @@ void drawKeyboard(const Session &session, const Layout &layout,
     rightText(assets.mono, activity, right(bounds) - 18, headingCenter,
               type::body, amber, drawList);
   } else if (trace) {
-    const auto activity = std::string("Input: ") + trace->input;
+    const auto activity = std::string("Last key: ") + trace->input;
     rightText(assets.mono, activity, right(bounds) - 18, headingCenter,
               type::body, muted, drawList);
   } else {
-    rightText(assets.ui, "Type on physical keyboard or click keycaps", right(bounds) - 18,
+    rightText(assets.ui, "Type A–Z or click a key", right(bounds) - 18,
               headingCenter, type::caption, muted, drawList);
   }
-  drawList.addLine({bounds.x + 16, bounds.y + 38},
-                   {right(bounds) - 16, bounds.y + 38}, 1, border);
-  const Rectangle tray{bounds.x + 16, bounds.y + 45, bounds.width - 32,
-                       bounds.height - 54};
+  drawList.addLine({bounds.x + 16, bounds.y + 36},
+                   {right(bounds) - 16, bounds.y + 36}, 1, border);
+  const Rectangle tray{bounds.x + 16, bounds.y + 38, bounds.width - 32,
+                       bounds.height - 46};
   drawList.addBox(tray, well);
 
   for (int i = 0; i < 26; ++i) {
     const Rectangle key = layout.keys[idx(i)];
     const char letter = indexToChar(i);
-    const bool pressed = (state.pressedKey.has_value() && *state.pressedKey == letter) ||
-                         (trace && trace->input == letter);
+    const bool pressed = state.pressedKey == letter;
     const bool over = checkCollisionPointRec(cursor, key);
     drawKey(key, letter, assets, pressed, over, drawList);
   }
@@ -300,19 +313,24 @@ void arrowAt(Vector2 point, float direction, Color color, DrawList &drawList) {
 void traceNode(const Assets &assets, Vector2 point, char letter,
                const char *caption, bool reflector, bool lit,
                DrawList &drawList) {
-  const Rectangle cell{point.x - 14, point.y - 14, 28, 28};
+  const Rectangle cell{point.x - 13, point.y - 13, 26, 26};
   const Color fill = lit ? amber : (reflector ? amberWell : well);
   drawList.addBox(cell, fill, lit || reflector ? amber : border, 0.22F);
   drawList.addCenteredText(assets.mono, std::string(1, letter), point, 18,
                            lit ? well : foreground);
-  drawList.addCenteredText(assets.ui, caption, {point.x, point.y + 24},
+  drawList.addCenteredText(assets.ui, caption, {point.x, point.y + 21},
                            type::caption, muted);
 }
 
 void drawSignal(const Session &session, Rectangle bounds, const Assets &assets,
                 DrawList &drawList) {
-  drawList.addText(assets.ui, "Signal path", {bounds.x, bounds.y + 1},
+  drawList.addBox(bounds, panel);
+  const auto headingY = assets.ui.centeredLineTop(center(bounds).y, type::section);
+  drawList.addText(assets.ui, "Signal path", {bounds.x + 16, headingY},
                    type::section);
+  const float divider = bounds.x + 145;
+  drawList.addLine({divider, bounds.y + 14}, {divider, bottom(bounds) - 14}, 1,
+                   border);
   const auto &trace = session.trace();
   const auto count = session.rotorCount();
   const auto columnCount = count + 3;
@@ -329,26 +347,19 @@ void drawSignal(const Session &session, Rectangle bounds, const Assets &assets,
                 trace ? trace->output : '-'};
   for (std::size_t i = 0; i < count; ++i) {
     const auto rotor = count - 1 - i;
-    const auto rType = session.rotorTypeAt(rotor);
-    const char *rName = (rType >= 0 && rType < static_cast<int>(enigma::rotorNames.size()))
-                            ? enigma::rotorNames[rType]
-                            : rotorNames[rotor];
+    const char *rName = rotorName(session, rotor);
     columns[i + 2] = {rName, rName,
                       trace ? trace->rotorForward[i] : '-',
                       trace ? trace->rotorBackward[rotor] : '-'};
   }
-  const auto refIdx = session.reflectorIndex();
-  const char *reflName = (refIdx >= 0 && refIdx < static_cast<int>(enigma::reflectorNames.size()))
-                             ? enigma::reflectorNames[refIdx]
-                             : "Refl. B";
-  columns[columnCount - 1] = {reflName, nullptr,
+  columns[columnCount - 1] = {reflectorName(session), nullptr,
                               trace ? trace->reflected : '-', '-'};
 
-  const float slot = bounds.width / static_cast<float>(columnCount);
-  const float start = bounds.x + slot * 0.5F;
-  const float turn = right(bounds) - 2;
-  const float top = bounds.y + 46;
-  const float base = bottom(bounds) - 40;
+  const float turn = right(bounds) - 22;
+  const float slot = (turn - divider - 10) / static_cast<float>(columnCount);
+  const float start = divider + 10 + slot * 0.5F;
+  const float top = bounds.y + 22;
+  const float base = bounds.y + 64;
   const Color wire = trace ? wireLit : wireIdle;
 
   drawList.addLine({start, top}, {turn, top}, 1, wire);
@@ -370,8 +381,6 @@ void drawSignal(const Session &session, Rectangle bounds, const Assets &assets,
                 false, i == 0 && trace.has_value(), drawList);
     }
   }
-  drawList.addLine({bounds.x, bottom(bounds)},
-                   {right(bounds), bottom(bounds)}, 1, border);
 }
 
 float stepperX(const Stepper &stepper) {
@@ -391,17 +400,20 @@ void drawStepper(const Stepper &stepper, const std::string &value,
 
 void drawRotors(const Session &session, const Layout &layout,
                 const Assets &assets, Vector2 cursor, DrawList &drawList) {
+  drawList.addBox(layout.rotors, panel);
   const auto &first = layout.rotorRows.front();
   const float x = first.bounds.x;
   const auto count = session.rotorCount();
   const float headingY = assets.ui.centeredLineTop(
       center(layout.rotorCountControl.decrease).y, type::section);
-  drawList.addText(assets.ui, "Rotor settings", {x, headingY}, type::section);
+  drawList.addText(assets.ui, "Rotors", {x, headingY}, type::section);
+  button(assets.ui, layout.reflectorButton, reflectorName(session), cursor,
+         drawList);
   drawStepper(layout.rotorCountControl, std::to_string(count), assets, cursor,
               drawList, count > minimumRotorCount, count < maximumRotorCount);
   const float labelsY = first.bounds.y - 12;
-  drawList.addCenteredText(assets.ui, "Rotor", {x + 19, labelsY}, type::caption,
-                           muted);
+  drawList.addCenteredText(assets.ui, "Model", {center(first.modelButton).x, labelsY},
+                           type::caption, muted);
   drawList.addCenteredText(assets.ui, "Live", {center(first.liveWindow).x, labelsY},
                            type::caption, muted);
   drawList.addCenteredText(assets.ui, "Start", {stepperX(first.start), labelsY},
@@ -411,12 +423,7 @@ void drawRotors(const Session &session, const Layout &layout,
 
   for (std::size_t i = 0; i < count; ++i) {
     const auto &row = layout.rotorRows[i];
-    const auto rType = session.rotorTypeAt(i);
-    const char *rName = (rType >= 0 && rType < static_cast<int>(enigma::rotorNames.size()))
-                            ? enigma::rotorNames[rType]
-                            : rotorNames[i];
-    drawList.addCenteredText(assets.mono, rName,
-                             {x + 19, center(row.bounds).y}, 18, amber);
+    button(assets.mono, row.modelButton, rotorName(session, i), cursor, drawList);
     drawList.addBox(row.liveWindow, well, border, 0.22F);
 
     for (float notchY = row.liveWindow.y + 4.0F; notchY < bottom(row.liveWindow) - 3.0F; notchY += 4.0F) {
@@ -436,20 +443,23 @@ void drawRotors(const Session &session, const Layout &layout,
                 drawList);
     drawStepper(row.ring, ring, assets, cursor, drawList);
   }
-  drawList.addLine({x, layout.plugboardTop - 8},
-                   {right(first.bounds), layout.plugboardTop - 8}, 1, border);
 }
 
 void drawPlugboard(const Session &session, const Layout &layout,
                    const Assets &assets, Vector2 cursor, DrawList &drawList) {
   const float x = layout.clearPlugboard.x;
-  const float y = layout.plugboardTop;
+  const auto bounds = layout.plugboard;
+  drawList.addBox(bounds, panel);
+  const float headingCenter = bounds.y + 24;
+  const float y = assets.ui.centeredLineTop(headingCenter, type::section);
   const auto &pairs = session.plugPairs();
   const auto selected = session.selectedPlug();
-  drawList.addText(assets.ui, "Plugboard  ·  Steckerbrett", {x, y}, type::section);
+  drawList.addText(assets.ui, "Plugboard", {x, y}, type::section);
   rightText(assets.mono, std::to_string(pairs.size()) + " / 10",
-            right(layout.reset), y + 12, type::control, muted, drawList);
+            right(layout.reset), headingCenter, type::control, muted, drawList);
 
+  drawList.setScissor({bounds.x + 8, bounds.y + 52, bounds.width - 16,
+                        layout.clearPlugboard.y - bounds.y - 58});
   std::string leads;
   for (const auto &[first, second] : pairs) {
     if (!leads.empty()) {
@@ -462,27 +472,16 @@ void drawPlugboard(const Session &session, const Layout &layout,
                        checkCollisionPointCircle(cursor, b, layout.plugRadius + 2.0F);
 
     const float dist = std::hypot(b.x - a.x, b.y - a.y);
-    const float sag = 18.0F + dist * 0.28F;
+    const float spaceBelow = layout.clearPlugboard.y - std::max(a.y, b.y);
+    const float sag = std::min(18.0F + dist * 0.28F, spaceBelow * 0.68F);
     const Vector2 c1{a.x, a.y + sag};
     const Vector2 c2{b.x, b.y + sag};
 
-    const Vector2 sA{a.x, a.y + 4.0F};
-    const Vector2 sB{b.x, b.y + 4.0F};
-    const Vector2 sc1{c1.x, c1.y + 4.0F};
-    const Vector2 sc2{c2.x, c2.y + 4.0F};
-    drawList.addCubicBezier(sA, sc1, sc2, sB, hover ? 4.5F : 3.5F, Color{5, 6, 8, 140});
-
-    const Color cordColor = hover ? amberHover : Color{185, 145, 80, 240};
-    drawList.addCubicBezier(a, c1, c2, b, hover ? 4.0F : 3.0F, cordColor);
-
-    const Color highlightColor = hover ? amber : Color{220, 185, 120, 200};
-    drawList.addCubicBezier(a, c1, c2, b, 1.2F, highlightColor);
-
-    drawList.addCircle(a, layout.plugRadius + 1.5F, hover ? amber : Color{160, 150, 130, 255});
-    drawList.addCircle(b, layout.plugRadius + 1.5F, hover ? amber : Color{160, 150, 130, 255});
+    const Color cordColor = hover ? amberHover : Color{139, 113, 78, 125};
+    drawList.addCubicBezier(a, c1, c2, b, hover ? 3.0F : 1.5F, cordColor);
   }
 
-  if (selected.has_value()) {
+  if (selected && checkCollisionPointRec(cursor, bounds)) {
     const auto a = layout.plugCenters[idx(*selected)];
     const auto b = cursor;
     const float dist = std::hypot(b.x - a.x, b.y - a.y);
@@ -492,15 +491,16 @@ void drawPlugboard(const Session &session, const Layout &layout,
     drawList.addCubicBezier(a, c1, c2, b, 2.5F, amber);
     drawList.addCircle(a, layout.plugRadius + 2.0F, amber);
   }
+  drawList.resetScissor();
 
   if (selected) {
     drawList.addText(assets.ui, "Connect " + letterAt(*selected) + " to another socket",
-                     {x, y + 34}, type::control, amber);
+                     {x, bounds.y + 39}, type::control, amber);
   } else if (leads.empty()) {
-    drawList.addText(assets.ui, "Click two sockets to connect them", {x, y + 34},
+    drawList.addText(assets.ui, "Click two sockets to connect them", {x, bounds.y + 39},
                      type::control, muted);
   } else {
-    drawList.addText(assets.mono, leads, {x, y + 34}, type::caption, amber);
+    drawList.addText(assets.mono, leads, {x, bounds.y + 39}, type::caption, amber);
   }
 
   for (int i = 0; i < 26; ++i) {
@@ -509,11 +509,10 @@ void drawPlugboard(const Session &session, const Layout &layout,
     const bool connected = session.isPlugConnected(i);
     const bool active = selected == i;
     const bool over = checkCollisionPointCircle(cursor, point, radius);
-    const Color collar = active || over || connected ? amber : Color{80, 85, 95, 255};
+    const Color collar = active || over ? amber : (connected ? wireLit : keyEdge);
     const Color fill = active ? amber : (connected ? amberLow : raised);
     drawList.addCircle(point, radius + 1.0F, collar);
     drawList.addCircle(point, radius, fill);
-    drawList.addCircle(point, 3.5F, Color{10, 12, 14, 255});
     drawList.addCenteredText(assets.mono, letterAt(i), point, type::body,
                              active ? well : foreground);
   }
@@ -525,45 +524,54 @@ void drawPlugboard(const Session &session, const Layout &layout,
 void drawPresetsMenu(const Layout &layout, const Assets &assets, Vector2 cursor,
                      DrawList &drawList) {
   const auto presets = enigma::historicalPresets();
-  const Rectangle menuBounds{
-      layout.presetsButton.x,
-      layout.presetsButton.y + layout.presetsButton.height + 4,
-      330, static_cast<float>(presets.size() * 48 + 32)};
+  const Rectangle menuBounds = layout.presetsMenu;
 
   drawList.addRectangleRounded(
       {menuBounds.x, menuBounds.y + 4, menuBounds.width, menuBounds.height},
       0.08F, 8, Color{5, 6, 8, 200});
 
-  drawList.addBox(menuBounds, panel, amber, 0.08F);
+  drawList.addBox(menuBounds, panel, keyEdge);
 
-  const float titleY = assets.ui.centeredLineTop(menuBounds.y + 14, type::caption);
-  drawList.addText(assets.ui, "WWII TAGESSCHLÜSSEL PRESETS",
-                   {menuBounds.x + 12, titleY}, type::caption, amber);
-  drawList.addLine({menuBounds.x + 10, menuBounds.y + 24},
-                   {right(menuBounds) - 10, menuBounds.y + 24}, 1, border);
+  const float titleY = assets.ui.centeredLineTop(menuBounds.y + 17, type::control);
+  drawList.addText(assets.ui, "Historical presets", {menuBounds.x + 18, titleY},
+                   type::control);
+  drawList.addLine({menuBounds.x + 16, menuBounds.y + 32},
+                   {right(menuBounds) - 16, menuBounds.y + 32}, 1, border);
 
   for (std::size_t i = 0; i < presets.size(); ++i) {
-    const Rectangle itemBounds{
-        menuBounds.x + 6,
-        menuBounds.y + 28 + static_cast<float>(i * 48),
-        menuBounds.width - 12, 44};
+    const Rectangle itemBounds = layout.presetRow(i);
     const bool over = checkCollisionPointRec(cursor, itemBounds);
     if (over) {
       drawList.addBox(itemBounds, hoverFill, border, 0.12F);
     }
 
     const auto &p = presets[i];
-    const float nameY = assets.ui.centeredLineTop(itemBounds.y + 13, type::control);
-    drawList.addText(assets.ui, p.name, {itemBounds.x + 10, nameY}, type::control,
+    const float textX = itemBounds.x + 10;
+    const float nameCenter = itemBounds.y + 14;
+    const float nameY = assets.ui.centeredLineTop(nameCenter, type::control);
+    drawList.addText(assets.ui, p.name, {textX, nameY}, type::control,
                      over ? amber : foreground);
+    rightText(assets.mono, p.date, right(itemBounds) - 10, nameCenter,
+              type::caption, muted, drawList);
 
-    const float dateY = assets.mono.centeredLineTop(itemBounds.y + 13, type::caption);
-    rightText(assets.mono, p.date, right(itemBounds) - 10, dateY + 6, type::caption,
-              muted, drawList);
-
-    const float descY = assets.ui.centeredLineTop(itemBounds.y + 30, type::caption);
-    drawList.addText(assets.ui, p.description, {itemBounds.x + 10, descY}, type::caption,
-                     over ? foreground : muted);
+    const float textWidth = itemBounds.width - 20;
+    const std::string_view description = p.description;
+    std::size_t lineEnd = description.size();
+    while (lineEnd > 0 &&
+           assets.ui.measure(description.substr(0, lineEnd), type::caption).x >
+               textWidth) {
+      const auto space = description.rfind(' ', lineEnd - 1);
+      lineEnd = space == std::string_view::npos ? lineEnd - 1 : space;
+    }
+    const float descY = assets.ui.centeredLineTop(itemBounds.y + 32, type::caption);
+    const Color descColor = over ? foreground : muted;
+    drawList.addText(assets.ui, description.substr(0, lineEnd), {textX, descY},
+                     type::caption, descColor);
+    if (lineEnd < description.size()) {
+      const auto next = description[lineEnd] == ' ' ? lineEnd + 1 : lineEnd;
+      drawList.addText(assets.ui, description.substr(next), {textX, descY + 16},
+                       type::caption, descColor);
+    }
   }
 }
 
@@ -714,43 +722,26 @@ void drawWorkbench(const Session &session, const Layout &layout,
   const float left = layout.content.x;
   const float edge = right(layout.content);
 
-  drawList.addText(assets.title, "Enigma Workbench", {left, 12}, type::title);
-  std::string configuration = "Rotors ";
-  for (std::size_t i = 0; i < session.rotorCount(); ++i) {
-    if (i != 0) {
-      configuration += ", ";
-    }
-    const auto rType = session.rotorTypeAt(i);
-    configuration += (rType >= 0 && rType < static_cast<int>(enigma::rotorNames.size()))
-                         ? enigma::rotorNames[rType]
-                         : rotorNames[i];
-  }
-  const auto refIdx = session.reflectorIndex();
-  configuration += "  ·  ";
-  configuration += (refIdx >= 0 && refIdx < static_cast<int>(enigma::reflectorNames.size()))
-                       ? enigma::reflectorNames[refIdx]
-                       : "Reflector B";
-  drawList.addText(assets.ui, configuration, {left + 1, 62}, type::control,
-                   muted);
+  const float titleY = assets.title.centeredLineTop(center(layout.openPhoto).y - 3,
+                                                    type::title);
+  drawList.addText(assets.title, "Enigma Workbench", {left, titleY}, type::title);
 
-  button(assets.ui, layout.presetsButton, "Presets ▾", state.photoOpen ? Vector2{-1.0F, -1.0F} : cursor,
+  button(assets.ui, layout.presetsButton, "Presets", state.photoOpen ? Vector2{-1.0F, -1.0F} : cursor,
          drawList, true, state.presetsOpen ? Button::primary : Button::normal);
 
   const bool soundMuted = audio ? audio->isMuted() : false;
-  button(assets.ui, layout.soundToggle, soundMuted ? "Sound: MUTE" : "Sound: ON",
-         state.photoOpen ? Vector2{-1.0F, -1.0F} : cursor,
-         drawList, true, soundMuted ? Button::normal : Button::primary);
+  button(assets.ui, layout.soundToggle, soundMuted ? "Sound off" : "Sound on",
+         controls, drawList);
 
   drawPhotoButton(layout, assets, state.photoOpen ? Vector2{-1.0F, -1.0F} : cursor, drawList);
-  drawList.addLine({left, 83}, {edge, 83}, 1, border);
+  drawList.addLine({left, 76}, {edge, 76}, 1, border);
 
   drawMessage(session, layout, assets, controls, drawList);
   drawLampboard(session, layout, assets, drawList);
   drawKeyboard(session, layout, assets, state, controls, drawList);
-  drawList.addBox(layout.machine, panel);
-  drawSignal(session, layout.signal, assets, drawList);
   drawRotors(session, layout, assets, controls, drawList);
   drawPlugboard(session, layout, assets, controls, drawList);
+  drawSignal(session, layout.signal, assets, drawList);
 
   const float footer = bottom(layout.content);
   const std::string count = std::to_string(session.input().size()) + " / " +

@@ -14,6 +14,7 @@ SearchRequest parseSearch(std::string ciphertext, std::string crib,
 
 std::string formatStarts(const enigma::MachineSettings &settings);
 std::string formatRings(const enigma::MachineSettings &settings);
+std::string formatProfile(const enigma::MachineSettings &settings);
 std::string formatLeads(const std::vector<enigma::PlugPair> &pairs);
 std::string_view statusText(SearchStatus status);
 

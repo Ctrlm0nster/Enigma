@@ -4,7 +4,7 @@
 #include "workbench/Geometry.hpp"
 
 #include <array>
-#include <chrono>
+#include <condition_variable>
 #include <mutex>
 #include <thread>
 
@@ -22,6 +22,7 @@ class DecipherPanel {
 public:
   bool isOpen() const { return open_; }
   bool isRunning() const { return running_; }
+  bool isPaused() const { return pausedAtCheckpoint_; }
   bool update();
 
   // An empty result lets the Workbench handle the event. A value reports
@@ -47,29 +48,41 @@ private:
   };
 
   void copySettings(enigma::MachineSettings settings);
+  void loadChallenge();
+  void clearPreview(bool both = false);
   void edit(std::string_view text);
-  void run();
+  void run(bool step = false);
+  void togglePause();
+  void stepSearch();
   std::string_view plaintext() const;
 
   bool open_ = false;
   bool searchMode_ = false;
   bool running_ = false;
+  bool pausedAtCheckpoint_ = false;
   bool replace_ = false;
   Field focus_ = Ciphertext;
   PlugboardMode boardMode_ = PlugboardMode::Unknown;
+  RotorScope rotorScope_ = RotorScope::FirstThree;
+  ReflectorScope reflectorScope_ = ReflectorScope::B;
   std::array<std::string, FieldCount> fields_{
       {"", "", "AAA", "01 01 01", "01 01 01", "", "", ""}};
+  std::array<int, enigma::maximumRotorCount> knownRotors_ =
+      enigma::MachineSettings{}.rotorTypes;
+  int knownReflector_ = enigma::MachineSettings{}.reflectorIndex;
   std::string knownPlaintext_;
   std::string status_;
   SearchProgress progress_;
-  std::optional<SearchResult> result_;
+  std::vector<Candidate> candidates_;
   std::size_t selected_ = 0;
   std::size_t cribLength_ = 0;
-  std::chrono::steady_clock::time_point startTime_{};
-  double searchDurationSeconds_ = 0.0;
-
   std::mutex mailboxMutex_;
+  std::condition_variable_any searchGate_;
+  bool paused_ = false;
+  bool stepRequested_ = false;
+  bool waiting_ = false;
   std::optional<SearchProgress> pendingProgress_;
+  std::vector<Candidate> pendingCandidates_;
   std::optional<SearchResult> pendingResult_;
   std::string pendingError_;
   std::jthread worker_;

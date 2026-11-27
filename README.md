@@ -18,7 +18,7 @@ mechanical audio synthesis, historical Kriegsmarine M4 modeling, and WWII Tagess
   - Typewriter mechanical key strikes with resonant metal plink (~36ms)
   - Metallic pawl ratchet turnover and rotor detent clicks (~48ms)
   - Plugboard banana plug contact friction and socket spring clamp snaps (~28ms)
-- Thread-safe non-blocking ALSA PCM streaming with sound toggle (`Sound: ON` / `Sound: MUTE`) and automatic headless/CI fallback.
+- Thread-safe non-blocking ALSA PCM streaming with sound toggle (`Sound on` / `Sound off`) and automatic headless/CI fallback.
 
 ### 3. Historical Kriegsmarine Enigma M4 & WWII Codebook Presets
 - Full Kriegsmarine Enigma M4 support with stationary Greek rotors *Beta* ($\beta$) and *Gamma* ($\gamma$), Thin Reflectors *Bruno* and *Caesar*, and dual turnover notches on Rotors VI, VII, and VIII (turning over at both 'Z' and 'M').

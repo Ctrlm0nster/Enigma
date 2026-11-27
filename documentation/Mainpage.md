@@ -1,25 +1,26 @@
 # Enigma Workbench
 
-<span class="docs-lead">Run an Enigma machine on your desktop. Follow each keypress through the plugboard, rotors, reflector, and lamp, and see how changing the machine settings changes the message.</span>
+<span class="docs-lead">An authentic, high-performance Enigma machine simulator and Turing-Welchman Bombe built with modern C++20 and custom Vulkan 1.3 rendering. Features a physical lampboard, tactile typewriter keycaps, draped cubic Bezier patch cords, zero-asset procedural mechanical audio synthesis, historical Kriegsmarine M4 modeling, and WWII Tagesschlüssel presets.</span>
 
 <div class="docs-start" aria-label="Quick links">
 @ref quick_start "Quick start"
 @ref docs_hub "Documentation hub"
 @ref workbench_guide "Workbench guide"
+@ref bombe_guide "Bombe search"
 [GitHub](https://github.com/Ctrlm0nster/Enigma)
 </div>
 
 @htmlonly
 <figure class="workbench-preview">
-<img src="workbench.png" width="1320" height="840" alt="Enigma Workbench with five rotor settings, a two-row signal trace, a plugboard, and an amber output lamp" />
-<figcaption>The Workbench with rotors I–V active. The signal path and settings grow as you add rotors.</figcaption>
+<img src="workbench.png" width="1320" height="840" alt="Enigma Workbench with five rotors, a separate lampboard and keyboard, and a full-width signal path below the controls" />
+<figcaption>The signal path follows the last keypress through five rotors to the amber output lamp.</figcaption>
 </figure>
 @endhtmlonly
 
 ## Quick start {#quick_start}
 
-Install Mise, a C++20 compiler, and the system Vulkan, GLFW, FreeType, and JPEG development packages.
-From the repository directory, run the following commands. [Build prerequisites](https://github.com/Ctrlm0nster/Enigma#build-and-run)
+Install Mise, a C++20 compiler, a Vulkan 1.3-capable GPU driver, and the system Vulkan, GLFW, FreeType, and libjpeg-turbo development packages. Install `glslc` to compile shaders.
+From the repository directory, run:
 
 ```sh
 mise trust
@@ -28,26 +29,36 @@ mise run run
 ```
 
 Type `HELLO` or click the on-screen keys. The output appears on the ciphertext
-tape, and the amber lamp shows the latest output letter. Use the **+** button
-beside **Rotor settings** to add Rotor IV, then Rotor V. The app replays `HELLO`
-from your chosen starting positions each time you change the rotor count.
+tape, and the amber lamp shows the latest output letter. Use the **Presets ▾** button
+to load historical WWII keys, or use **+** beside **Rotor settings** to add fourth and fifth rotors.
 
 ## Controls at a glance {#quick_controls}
 
 | Action | Control |
 | --- | --- |
-| Enter one letter | Keyboard or on-screen keys |
+| Enter one letter | Keyboard or on-screen typewriter keys |
 | Paste a message | **Paste** or `Ctrl+V` |
-| Copy the output | **Copy ciphertext** or `Ctrl+C` |
-| Undo the last letter | `Backspace` |
+| Copy the ciphertext | **Copy ciphertext** or `Ctrl+C` |
+| Undo the last letter | `Backspace` (rewinds machine and signal trace) |
+| Toggle mechanical sound | **Sound** button (`Sound on` / `Sound off`) |
+| Load WWII key sheets | **Presets ▾** dropdown menu |
 | Add or remove a rotor | **+** or **−** beside **Rotor settings** |
-| Start a new message with the same settings | **Clear** |
-| Restore the default configuration | **Reset machine** |
+| Adjust start / ring | Window letter dropdowns and ring numeric inputs |
+| Connect / remove plug leads | Click unpatched or connected sockets (up to 10 pairs) |
+| Clear plugboard | **Clear leads** |
+| Start a new message | **Clear** |
+| Restore default configuration | **Reset machine** |
+| Open cryptanalysis suite | **Decipher** (known key decoding & Bombe search) |
+| View original machine | **Machine photo** (Imperial War Museum photo) |
 
-## More documentation {#more_documentation}
+## Documentation Topics {#more_documentation}
 
-- @subpage docs_hub "Documentation hub" for operating instructions, the rotor model, and component guides.
-- @ref architecture "Architecture" for the layout of the C++20 core and Vulkan workbench.
-- @ref EnigmaMachine "EnigmaMachine API" for the cipher core and its trace methods.
-
-Enigma Workbench is released under GPL-3.0-only. [License](https://github.com/Ctrlm0nster/Enigma/blob/master/LICENSE) · [Photo and font credits](https://github.com/Ctrlm0nster/Enigma/blob/master/assets/ATTRIBUTION.md)
+- @subpage docs_hub "Documentation hub": Master index for operating guides, machine mechanics, and C++ reference.
+- @subpage workbench_guide "Workbench guide": Full guide to the lampboard, typewriter keycaps, audio, presets, rotors, and plugboard.
+- @subpage bombe_guide "Decipher and Bombe search": Deciphering intercepted text, crib searches, scrambler drum animations, and throughput telemetry.
+- @subpage signal_flow "Signal path and circuit flow": Visualizing electrical current through the machine.
+- @subpage stepping_mechanism "Rotor stepping mechanism": Mechanical pawl engagement, naval dual-notch turnover, and the double-stepping anomaly.
+- @subpage rotor_guide "Rotors (Walzen)": Wirings, notch positions, and Greek rotor characteristics for all 10 rotors.
+- @subpage reflector_guide "Reflectors (Umkehrwalzen)": Standard and thin reflectors (A, B, C, Thin Bruno, Thin Caesar).
+- @subpage plugboard_guide "Plugboard (Steckerbrett)": Catenary Bezier cords and permutation math.
+- @subpage architecture "Architecture overview": C++20 core, audio engine, Bombe solver, and Vulkan 1.3 renderer.

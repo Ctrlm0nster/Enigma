@@ -132,6 +132,20 @@ std::string formatRings(const enigma::MachineSettings &settings) {
   return text;
 }
 
+std::string formatProfile(const enigma::MachineSettings &settings) {
+  std::string text = "Rotors";
+  for (std::size_t i = 0; i < settings.rotorCount; ++i) {
+    const auto model = static_cast<std::size_t>(settings.rotorTypes[i]);
+    text += ' ';
+    text += enigma::rotorNames[model < enigma::rotorNames.size() ? model : i];
+  }
+  const auto reflector = static_cast<std::size_t>(settings.reflectorIndex);
+  text += "  ·  ";
+  text += enigma::reflectorNames[reflector < enigma::reflectorNames.size()
+                                    ? reflector : 1];
+  return text;
+}
+
 std::string formatLeads(const std::vector<enigma::PlugPair> &pairs) {
   std::string text;
   for (const auto &[first, second] : pairs) {

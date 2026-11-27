@@ -96,6 +96,82 @@ TEST_CASE("Bombe infers unknown leads and verifies the full tape", "[bombe]") {
   }
 }
 
+TEST_CASE("Bombe recovers rotor order and reflector and streams verified matches",
+          "[bombe]") {
+  auto settings = demonstrationSettings();
+  auto scope = bombe::RotorScope::Fixed;
+  auto reflectors = bombe::ReflectorScope::B;
+  std::size_t profiles = 0;
+  bool stopAtMatch = false;
+
+  SECTION("Three rotor orders with either reflector") {
+    settings.rotorTypes = {2, 0, 1, 3, 4};
+    settings.reflectorIndex = 2;
+    scope = bombe::RotorScope::FirstThree;
+    reflectors = bombe::ReflectorScope::Both;
+    profiles = 12;
+  }
+  SECTION("Orders drawn from five rotors") {
+    settings.rotorTypes = {0, 1, 3, 3, 4};
+    settings.reflectorIndex = 1;
+    scope = bombe::RotorScope::FirstFive;
+    reflectors = bombe::ReflectorScope::B;
+    profiles = 60;
+    stopAtMatch = true;
+  }
+
+  bombe::SearchRequest request;
+  request.ciphertext = enigma::makeMachine(settings).processString(message);
+  request.crib = message;
+  request.cribOffset = 0;
+  std::copy_n(settings.rings.begin(), bombe::rotorCount, request.rings.begin());
+  request.plugboard = bombe::PlugboardMode::Known;
+  request.knownLeads = settings.plugPairs;
+  request.rotors = scope;
+  request.reflectors = reflectors;
+
+  std::stop_source stop;
+  bool streamed = false;
+  std::optional<bombe::SearchProgress> checkpoint;
+  const auto hasExpectedKey = [&](const auto &candidate) {
+    return candidate.settings.rotorTypes == settings.rotorTypes &&
+           candidate.settings.reflectorIndex == settings.reflectorIndex &&
+           candidate.settings.starts == settings.starts;
+  };
+  const auto result = bombe::search(
+      request, {}, stop.get_token(),
+      [&](const auto &progress) {
+        if (progress.phase == bombe::SearchPhase::Checking && !checkpoint) {
+          checkpoint = progress;
+        }
+      },
+      [&](const auto &candidate) {
+        CHECK(candidate.plaintext == message);
+        if (hasExpectedKey(candidate)) {
+          streamed = true;
+          if (stopAtMatch) {
+            stop.request_stop();
+          }
+        }
+      });
+  REQUIRE(checkpoint);
+  CHECK(checkpoint->work == bombe::checkpointWork);
+  REQUIRE(checkpoint->start);
+  CHECK(*checkpoint->start == bombe::checkpointWork - 1);
+  CHECK(checkpoint->cribOffset == 0);
+  CHECK(streamed);
+  CHECK(std::ranges::any_of(result.candidates, hasExpectedKey));
+  CHECK(result.progress.profiles == profiles);
+  CHECK(result.progress.totalSettings == profiles * bombe::startCount);
+  CHECK(result.progress.phase == bombe::SearchPhase::Finished);
+  if (stopAtMatch) {
+    CHECK(result.status == bombe::SearchStatus::Cancelled);
+  } else {
+    CHECK(result.status == bombe::SearchStatus::Complete);
+    CHECK(result.progress.settingsChecked == result.progress.totalSettings);
+  }
+}
+
 TEST_CASE("Bombe aligns normalized text and rejects self-matches", "[bombe]") {
   auto request = demonstrationSearch(bombe::PlugboardMode::Known);
   request.knownLeads = demonstrationSettings().plugPairs;

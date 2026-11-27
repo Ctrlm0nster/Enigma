@@ -402,6 +402,30 @@ TEST_CASE("Input event pipeline processes keyboard, mouse, and modal priority",
     CHECK(handleEvent(session, layout, state, clickInc, platform, shouldClose));
     CHECK(session.rotorCount() == 4);
   }
+
+  SECTION("Preset rows handle clicks across their visible width") {
+    layout = makeLayout(minimumWidth, minimumHeight, session.rotorCount());
+    const auto presets = enigma::historicalPresets();
+    REQUIRE(presets.size() > 1);
+
+    InputEvent click{};
+    click.type = EventType::MouseButton;
+    click.button = 0;
+    click.action = 1;
+    click.cursor = center(layout.presetsButton);
+    CHECK(handleEvent(session, layout, state, click, platform, shouldClose));
+    REQUIRE(state.presetsOpen);
+    handleEvent(session, layout, state, {.type = EventType::Char, .codepoint = 'A'},
+                platform, shouldClose);
+    CHECK(session.input().empty());
+
+    const auto row = layout.presetRow(1);
+    click.cursor = {right(row) - 2, center(row).y};
+    CHECK(handleEvent(session, layout, state, click, platform, shouldClose));
+    CHECK_FALSE(state.presetsOpen);
+    CHECK(session.rotorCount() == presets[1].settings.rotorCount);
+    CHECK(session.reflectorIndex() == presets[1].settings.reflectorIndex);
+  }
 }
 
 TEST_CASE("Font atlas loads TTF and measures text accurately",
@@ -707,6 +731,22 @@ TEST_CASE("Layout generates dedicated lampboard, typewriter keys, and toolbar co
   CHECK(layout.presetsButton.width > 50.0F);
   CHECK(layout.soundToggle.y < 80.0F);
   CHECK(layout.presetsButton.y < 80.0F);
+
+  const auto compact = makeLayout(minimumWidth, minimumHeight, maximumRotorCount);
+  CHECK(right(compact.presetsButton) < decipherLauncher(compact.content).x);
+  CHECK(right(decipherLauncher(compact.content)) < compact.openPhoto.x);
+  CHECK(bottom(compact.rotorRows.back().bounds) < bottom(compact.rotors));
+  CHECK(bottom(compact.clearPlugboard) < bottom(compact.plugboard));
+  CHECK(bottom(compact.keyboard) < compact.signal.y);
+  CHECK(bottom(compact.signal) <= bottom(compact.content));
+  for (std::size_t i = 0; i < compact.keys.size(); ++i) {
+    const auto &key = compact.keys[i];
+    const auto lamp = compact.lampCenters[i];
+    CHECK(key.y > compact.keyboard.y + 36);
+    CHECK(bottom(key) < bottom(compact.keyboard));
+    CHECK(lamp.y + compact.lampRadius < bottom(compact.lampboard));
+    CHECK(center(key).x == lamp.x);
+  }
 }
 
 #endif // ENIGMA_CORE_ONLY

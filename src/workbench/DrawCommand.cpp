@@ -408,4 +408,43 @@ void DrawList::addCenteredText(const FontAtlas &font, std::string_view text,
           size, color);
 }
 
+void DrawList::addCenteredGlyph(const FontAtlas &font, uint32_t codepoint,
+                                Vector2 center, float size, Color color) {
+  const auto *gm = font.findGlyph(codepoint);
+  if (!gm) {
+    gm = font.findGlyph('?');
+  }
+  if (!gm || gm->width <= 0.0F || gm->height <= 0.0F) {
+    return;
+  }
+
+  setPipeline(PipelineType::Sampled, font.textureId());
+  ensureBatch();
+
+  const float scale = size / static_cast<float>(font.baseSize());
+  const auto c = colorToLinear(color);
+
+  const float glyphW = gm->width * scale;
+  const float glyphH = gm->height * scale;
+  const float left = center.x - glyphW * 0.5F;
+  const float top = center.y - glyphH * 0.5F;
+  const float right = left + glyphW;
+  const float bottom = top + glyphH;
+
+  const auto base = static_cast<uint32_t>(vertices_.size());
+  vertices_.push_back({{left, top}, {gm->u0, gm->v0}, {c[0], c[1], c[2], c[3]}});
+  vertices_.push_back({{right, top}, {gm->u1, gm->v0}, {c[0], c[1], c[2], c[3]}});
+  vertices_.push_back({{right, bottom}, {gm->u1, gm->v1}, {c[0], c[1], c[2], c[3]}});
+  vertices_.push_back({{left, bottom}, {gm->u0, gm->v1}, {c[0], c[1], c[2], c[3]}});
+
+  indices_.push_back(base + 0);
+  indices_.push_back(base + 1);
+  indices_.push_back(base + 2);
+  indices_.push_back(base + 0);
+  indices_.push_back(base + 2);
+  indices_.push_back(base + 3);
+
+  batches_.back().indexCount += 6;
+}
+
 } // namespace workbench
