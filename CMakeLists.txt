@@ -45,6 +45,7 @@ enigma_set_warnings(EnigmaCore)
 enigma_enable_sanitizers(EnigmaCore)
 
 option(ENIGMA_BUILD_WORKBENCH "Build Enigma Workbench GUI application" ON)
+option(ENIGMA_REQUIRE_SHADER_VALIDATION "Require spirv-val for Workbench builds" OFF)
 
 set(ENIGMA_WORKBENCH_AVAILABLE FALSE)
 if(ENIGMA_BUILD_WORKBENCH)
@@ -79,6 +80,11 @@ if(ENIGMA_WORKBENCH_AVAILABLE)
     find_program(GLSLC_EXECUTABLE glslc REQUIRED)
   endif()
 
+  find_program(SPIRV_VAL_EXECUTABLE spirv-val)
+  if(ENIGMA_REQUIRE_SHADER_VALIDATION AND NOT SPIRV_VAL_EXECUTABLE)
+    message(FATAL_ERROR "Workbench shader validation requires spirv-val from SPIRV-Tools")
+  endif()
+
   set(SHADER_SOURCES
     src/workbench/shaders/solid.vert
     src/workbench/shaders/solid.frag
@@ -87,6 +93,7 @@ if(ENIGMA_WORKBENCH_AVAILABLE)
   )
 
   set(SPV_OUTPUTS "")
+  set(SPV_VALIDATION_COMMANDS "")
   foreach(SHADER ${SHADER_SOURCES})
     get_filename_component(SHADER_NAME ${SHADER} NAME)
     set(SPV_FILE "${CMAKE_CURRENT_BINARY_DIR}/shaders/${SHADER_NAME}.spv")
@@ -98,9 +105,22 @@ if(ENIGMA_WORKBENCH_AVAILABLE)
       VERBATIM
     )
     list(APPEND SPV_OUTPUTS ${SPV_FILE})
+    if(SPIRV_VAL_EXECUTABLE)
+      list(APPEND SPV_VALIDATION_COMMANDS
+        COMMAND "${SPIRV_VAL_EXECUTABLE}" --target-env vulkan1.3 "${SPV_FILE}")
+    endif()
   endforeach()
 
   add_custom_target(EnigmaShaders ALL DEPENDS ${SPV_OUTPUTS})
+  if(SPIRV_VAL_EXECUTABLE)
+    add_custom_target(EnigmaValidateShaders
+      ${SPV_VALIDATION_COMMANDS}
+      DEPENDS ${SPV_OUTPUTS}
+      COMMENT "Validating Enigma shaders for Vulkan 1.3"
+      VERBATIM
+    )
+    add_dependencies(EnigmaShaders EnigmaValidateShaders)
+  endif()
 
   set(ENIGMA_SOURCES
     src/main.cpp

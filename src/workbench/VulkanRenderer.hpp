@@ -33,6 +33,8 @@ struct FrameSlot {
   VkCommandBuffer commandBuffer{VK_NULL_HANDLE};
   VkSemaphore imageAvailableSemaphore{VK_NULL_HANDLE};
   VkFence inFlightFence{VK_NULL_HANDLE};
+  uint64_t generation{0};
+  uint64_t retireBefore{0};
 
   VkBuffer vertexBuffer{VK_NULL_HANDLE};
   VkDeviceMemory vertexBufferMemory{VK_NULL_HANDLE};
@@ -68,15 +70,40 @@ public:
 
   bool isInitialized() const { return device_ != VK_NULL_HANDLE; }
   VkDevice device() const { return device_; }
+  bool hasFailed() const { return failed_; }
+  bool needsRedraw() const {
+    return swapchainOutOfDate_ || !retiredSwapchains_.empty();
+  }
 
 private:
+  struct SwapchainImage {
+    VkImage image{VK_NULL_HANDLE};
+    VkImageView view{VK_NULL_HANDLE};
+    VkSemaphore renderFinished{VK_NULL_HANDLE};
+    VkFence presentFence{VK_NULL_HANDLE};
+    bool presentPending{false};
+    bool presented{false};
+  };
+
+  struct Swapchain {
+    VkSwapchainKHR handle{VK_NULL_HANDLE};
+    VkFormat format{VK_FORMAT_UNDEFINED};
+    VkExtent2D extent{};
+    uint64_t generation{0};
+    bool presentQueued{false};
+    std::vector<SwapchainImage> images;
+  };
+
   bool createInstance(bool enableValidation);
   bool selectPhysicalDevice();
   bool createLogicalDevice();
   bool createSwapchain(int width, int height);
-  void destroySwapchain();
-  bool recreateSwapchain(int width, int height);
+  void destroySwapchain(Swapchain &chain);
+  bool collectRetiredSwapchains();
+  void waitForPresentFences(const Swapchain &chain);
+  bool fail(const char *operation, VkResult result);
   bool createPipelines();
+  void destroyPipelines();
   bool createFrameResources();
   void destroyFrameResources();
 
@@ -104,12 +131,14 @@ private:
 
   VkCommandPool commandPool_{VK_NULL_HANDLE};
 
-  VkSwapchainKHR swapchain_{VK_NULL_HANDLE};
-  VkFormat swapchainFormat_{VK_FORMAT_B8G8R8A8_SRGB};
-  VkExtent2D swapchainExtent_{0, 0};
-  std::vector<VkImage> swapchainImages_;
-  std::vector<VkImageView> swapchainImageViews_;
-  std::vector<VkSemaphore> renderFinishedSemaphores_;
+  Swapchain swapchain_;
+  std::vector<Swapchain> retiredSwapchains_;
+  VkExtent2D requestedExtent_{};
+  uint64_t nextGeneration_{1};
+  uint64_t retireBefore_{0};
+  bool surfaceMaintenanceKHR_{false};
+  bool surfaceMaintenanceEXT_{false};
+  const char *presentFenceExtension_{nullptr};
 
   VkSampler sampler_{VK_NULL_HANDLE};
   VkDescriptorSetLayout descriptorSetLayout_{VK_NULL_HANDLE};
@@ -125,6 +154,7 @@ private:
   uint32_t frameIndex_{0};
   uint32_t currentImageIndex_{0};
   bool swapchainOutOfDate_{false};
+  bool failed_{false};
   bool isFrameBufferCoherent_{true};
 
   std::unordered_map<uint32_t, TextureResource> textures_;

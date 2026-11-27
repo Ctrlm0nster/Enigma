@@ -38,7 +38,8 @@ jobs:
             libglfw3-dev \
             libfreetype-dev \
             libjpeg-dev \
-            glslc
+            glslc \
+            spirv-tools
 
       - name: Configure CMake with Sanitizers
         env:
@@ -47,7 +48,8 @@ jobs:
         run: |
           cmake -S . -B build/sanitized -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
-            -DENIGMA_ENABLE_SANITIZERS=ON
+            -DENIGMA_ENABLE_SANITIZERS=ON \
+            -DENIGMA_REQUIRE_SHADER_VALIDATION=ON
 
       - name: Build Workbench, Bombe, and tests
         run: cmake --build build/sanitized --target Enigma EnigmaBombe EnigmaTests

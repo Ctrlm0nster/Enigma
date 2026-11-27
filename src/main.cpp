@@ -186,6 +186,7 @@ int main() {
 
   queue.damaged = true;
 
+  int exitCode = EXIT_SUCCESS;
   while (!glfwWindowShouldClose(window) && !shouldClose) {
     std::vector<InputEvent> currentEvents;
     currentEvents.swap(queue.events);
@@ -237,13 +238,22 @@ int main() {
         }
         renderer.renderDrawList(drawList, queue.windowWidth, queue.windowHeight);
         if (!renderer.endFrame()) {
+          exitCode = EXIT_FAILURE;
           break;
         }
+        queue.damaged = renderer.needsRedraw();
+      } else if (renderer.hasFailed()) {
+        exitCode = EXIT_FAILURE;
+        break;
+      } else {
+        queue.damaged = true;
       }
     }
 
     if (queue.events.empty()) {
-      if (decipher.isRunning() && !decipher.isPaused()) {
+      if (queue.damaged && queue.fbWidth > 0 && queue.fbHeight > 0) {
+        glfwWaitEventsTimeout(0.016);
+      } else if (decipher.isRunning() && !decipher.isPaused()) {
         glfwWaitEventsTimeout(0.04);
       } else if (!state.status.isExpired()) {
         const double timeout = state.status.secondsRemaining();
@@ -265,5 +275,5 @@ int main() {
   renderer.shutdown();
   glfwDestroyWindow(window);
   glfwTerminate();
-  return 0;
+  return exitCode;
 }

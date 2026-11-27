@@ -97,6 +97,17 @@ The user interface is rendered through a dedicated Vulkan 1.3 engine:
 - **Batching**: The `DrawList` accumulates textured quads (text, museum photo), solid geometry, and multi-ring bloom gradients into cohesive vertex/index buffers.
 - **Synchronization**: Employs double-buffering with Vulkan fences and semaphores to ensure tear-free presentation and optimal frame pacing.
 
+On resize, the renderer passes the previous swapchain to Vulkan and continues
+with the replacement. It releases the old image views and semaphores after
+their frame submissions and presentation waits are finished. Drivers with
+swapchain maintenance support provide presentation fences. On other drivers,
+the renderer waits for evidence that an already-presented image on a newer
+swapchain has been reacquired. [Khronos swapchain recreation guide](https://docs.vulkan.org/samples/latest/samples/api/swapchain_recreation/README.html)
+
+CMake checks generated SPIR-V against Vulkan 1.3 when `spirv-val` is installed.
+CI requires the validator with `ENIGMA_REQUIRE_SHADER_VALIDATION=ON`. The
+`EnigmaValidateShaders` target runs the checks directly.
+
 ## Testing and Quality Assurance {#architecture_tests}
 
 The test suite in `test/test_main.cpp` and `test/bombe_panel_tests.cpp` provides comprehensive verification:
