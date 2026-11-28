@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <iterator>
 #include <random>
+#include <stdexcept>
 
 namespace bombe {
 namespace {
@@ -33,6 +34,21 @@ struct PanelLayout {
   Rectangle searchTab() const { return {body.x + 151, 86, 143, 36}; }
   Rectangle useSettings() const { return {right(form) - 174, 148, 158, 28}; }
   Rectangle challenge() const { return {right(searchTab()) + 12, 86, 143, 36}; }
+  Rectangle share() const { return {right(challenge()) + 12, 86, 143, 36}; }
+  Rectangle import() const { return {right(share()) + 8, 86, 143, 36}; }
+  Rectangle shareDialog() const {
+    const float width = std::min(body.width - 32, 756.0F);
+    constexpr float height = 420;
+    return {center(body).x - width * 0.5F, (body.height - height) * 0.5F,
+            width, height};
+  }
+  Rectangle shareCopy() const {
+    const auto dialog = shareDialog();
+    return {right(dialog) - 250, bottom(dialog) - 51, 144, 35};
+  }
+  Rectangle shareClose() const {
+    return {right(shareCopy()) + 8, shareCopy().y, 82, shareCopy().height};
+  }
   Rectangle ciphertext() const { return field(188, 109); }
   Rectangle crib() const { return field(326, 64); }
   Rectangle start() const { return field(326, 34); }
@@ -64,8 +80,8 @@ struct PanelLayout {
   Rectangle pause() const { return {right(run()) + 8, run().y, 94, run().height}; }
   Rectangle step() const { return {right(pause()) + 8, run().y, 82, run().height}; }
   Rectangle cancel() const { return {right(step()) + 8, run().y, 90, run().height}; }
-  Rectangle previous() const { return {results.x + 16, 301, 98, 30}; }
-  Rectangle next() const { return {right(results) - 110, 301, 94, 30}; }
+  Rectangle previous() const { return {results.x + 16, 312, 98, 30}; }
+  Rectangle next() const { return {right(results) - 110, 312, 94, 30}; }
   Rectangle preview(bool search) const {
     const float y = search ? 467.0F : 225.0F;
     return {results.x + 16, y, results.width - 32, bottom(results) - y - 62};
@@ -88,10 +104,69 @@ PanelLayout panelLayout(int width, int height) {
 constexpr std::array boardModes{PlugboardMode::Unknown, PlugboardMode::Partial,
                                 PlugboardMode::Known};
 constexpr std::array boardLabels{"Unknown", "Known leads", "Known board"};
+constexpr std::array boardHelp{
+    "Bombe infers plugboard pairs from the crib.",
+    "Entered pairs stay fixed. Bombe tests other pairs.",
+    "Only entered pairs are used. Leave empty for no leads."};
 constexpr std::array rotorScopes{RotorScope::Fixed, RotorScope::FirstThree,
                                   RotorScope::FirstFive};
 constexpr std::array rotorLabels{"I–III fixed", "I–III orders", "I–V orders"};
 constexpr std::array reflectorLabels{"Refl. B", "Refl. C", "B or C"};
+
+std::string formatPosition(const SearchRequest &request) {
+  return request.cribOffset ? std::to_string(*request.cribOffset + 1) : "";
+}
+
+std::size_t boardIndex(PlugboardMode mode) {
+  return static_cast<std::size_t>(std::ranges::find(boardModes, mode) -
+                                  boardModes.begin());
+}
+
+std::array<std::string, 2> describeSearch(const SearchRequest &request) {
+  const auto rotor = std::ranges::find(rotorScopes, request.rotors) - rotorScopes.begin();
+  auto board = std::string(boardLabels[boardIndex(request.plugboard)]);
+  auto leads = formatLeads(request.knownLeads);
+  if (request.plugboard != PlugboardMode::Unknown) {
+    if (leads.empty()) {
+      leads = request.plugboard == PlugboardMode::Known ? "Unplugged" : "No pairs supplied";
+    }
+    board += "  ·  " + leads;
+  }
+  return {
+      std::string(rotorLabels[rotor]) + "  ·  " +
+          reflectorLabels[static_cast<std::size_t>(request.reflectors)] +
+          "  ·  Rings " + formatRings(request.rings) + "  ·  Crib " +
+          (request.cribOffset ? formatPosition(request) : "auto"),
+      std::move(board)};
+}
+
+std::string_view searchOutcome(const SearchResult &result) {
+  switch (result.status) {
+  case SearchStatus::Complete:
+    if (result.progress.viableAlignments == 0) {
+      return "No viable positions. Check the crib and its position.";
+    }
+    if (result.progress.matches == 0) {
+      return "No matches. Check the rings, reflector, rotor scope and plugboard.";
+    }
+    return "Search complete";
+  case SearchStatus::Cancelled:
+    return result.progress.matches == 0
+               ? "Search cancelled. Run search to start again."
+               : "Search cancelled. Matches found so far are available.";
+  case SearchStatus::WorkLimit:
+    return "Work limit reached. Narrow the rotor scope or pin the crib.";
+  case SearchStatus::ResultLimit:
+    return "Result limit reached. Try a longer crib or pin its position.";
+  }
+  return {};
+}
+
+bool hasLead(const std::vector<enigma::PlugPair> &pairs, enigma::PlugPair lead) {
+  const auto [first, second] = lead;
+  return std::ranges::find(pairs, lead) != pairs.end() ||
+         std::ranges::find(pairs, enigma::PlugPair{second, first}) != pairs.end();
+}
 
 enum class ButtonTone { Normal, Primary, Selected };
 
@@ -156,6 +231,43 @@ void tape(DrawList &draw, const FontAtlas &mono, Rectangle bounds,
   draw.resetScissor();
 }
 
+void drawChallengePreview(DrawList &draw, const Assets &assets,
+                          const PanelLayout &layout, Vector2 cursor,
+                          std::string_view payload, std::string_view status) {
+  const auto dialog = layout.shareDialog();
+  draw.addRectangle({0, 0, right(layout.body) + layout.body.x, layout.body.height},
+                    Color{0, 0, 0, 175});
+  draw.addBox(dialog, panel);
+  const float x = dialog.x + 20;
+  draw.addText(assets.ui, "Share challenge", {x, dialog.y + 18}, type::section);
+  draw.addText(assets.ui, "The ciphertext, crib, rings and selected hints are shared.",
+               {x, dialog.y + 49}, type::control, muted);
+  const Rectangle box{x, dialog.y + 77, dialog.width - 40, dialog.height - 144};
+  draw.addBox(box, well, border, 0.12F);
+  const auto &mono = assets.mono;
+  const float advance = mono.measure("W", type::caption).x;
+  if (advance > 0) {
+    const auto columns = std::max(std::size_t{1},
+        static_cast<std::size_t>((box.width - 24) / advance));
+    const auto lineAdvance = mono.lineAdvance(type::caption);
+    float y = box.y + 12;
+    while (!payload.empty()) {
+      const auto newline = payload.find('\n');
+      const auto count = std::min(newline, columns);
+      const auto line = payload.substr(0, count);
+      draw.addText(mono, line, {box.x + 12, y}, type::caption);
+      payload.remove_prefix(line.size() + (count == newline ? 1 : 0));
+      y += lineAdvance;
+    }
+  }
+  const auto copy = layout.shareCopy();
+  draw.addText(assets.ui, status,
+               {x, assets.ui.centeredLineTop(center(copy).y, type::control)},
+               type::control, amber);
+  button(draw, assets.ui, copy, "Copy challenge", cursor, true, ButtonTone::Primary);
+  button(draw, assets.ui, layout.shareClose(), "Close", cursor);
+}
+
 } // namespace
 
 void DecipherPanel::copySettings(enigma::MachineSettings settings) {
@@ -190,18 +302,95 @@ void DecipherPanel::loadChallenge() {
   }
   key.reflectorIndex = std::uniform_int_distribution<int>(1, 2)(random);
 
+  auto request = parseSearch(
+      enigma::makeMachine(key).processString(std::string(message)),
+      std::string(message.substr(0, 53)), formatRings(key), "1",
+      PlugboardMode::Known, formatLeads(key.plugPairs));
+  request.rotors = RotorScope::FirstThree;
+  request.reflectors = ReflectorScope::Both;
+  loadSearch(std::move(request));
+  status_ = "Challenge ready. Run or step to find its key.";
+}
+
+void DecipherPanel::createChallenge(const Session &session) {
+  auto key = session.settings();
+  auto models = std::span(key.rotorTypes).first<rotorCount>();
+  auto sorted = std::array{models[0], models[1], models[2]};
+  std::ranges::sort(sorted);
+  if (key.rotorCount != rotorCount || key.reflectorIndex < 1 || key.reflectorIndex > 2 ||
+      sorted.front() < 0 || sorted.back() >= 5 ||
+      std::ranges::adjacent_find(sorted) != sorted.end()) {
+    throw std::invalid_argument("Use three distinct rotors I–V and reflector B or C");
+  }
+
+  auto request = parseSearch(session.output(), "", formatRings(key), "",
+                             PlugboardMode::Unknown, "");
+  request.rotors = RotorScope::FirstFive;
+  request.reflectors = ReflectorScope::Both;
+  loadSearch(std::move(request));
+  challengeSource_.emplace(ChallengeSource{session.input(), std::move(key)});
+  status_ = "Choose a crib and hints, then select Preview share.";
+}
+
+void DecipherPanel::loadSearch(SearchRequest request) {
+  auto rings = formatRings(request.rings);
+  auto pairs = formatLeads(request.knownLeads);
+  auto position = formatPosition(request);
   clearPreview(true);
-  fields_[Ciphertext] = enigma::makeMachine(key).processString(std::string(message));
-  fields_[Crib] = message.substr(0, 53);
-  fields_[SearchRings] = formatRings(key);
-  fields_[SearchLeads] = formatLeads(key.plugPairs);
-  fields_[Offset] = "1";
-  rotorScope_ = RotorScope::FirstThree;
-  reflectorScope_ = ReflectorScope::Both;
-  boardMode_ = PlugboardMode::Known;
+  challengeSource_.reset();
+  fields_[Ciphertext] = std::move(request.ciphertext);
+  fields_[Crib] = std::move(request.crib);
+  fields_[SearchRings] = std::move(rings);
+  fields_[SearchLeads] = std::move(pairs);
+  fields_[Offset] = std::move(position);
+  rotorScope_ = request.rotors;
+  reflectorScope_ = request.reflectors;
+  boardMode_ = request.plugboard;
   focus_ = Crib;
   replace_ = false;
-  status_ = "Challenge ready. Run or step to find its key.";
+}
+
+SearchRequest DecipherPanel::searchInputs() const {
+  auto request = parseSearch(
+      fields_[Ciphertext], fields_[Crib], fields_[SearchRings], fields_[Offset],
+      boardMode_, boardMode_ == PlugboardMode::Unknown ? "" : fields_[SearchLeads]);
+  request.rotors = rotorScope_;
+  request.reflectors = reflectorScope_;
+  return request;
+}
+
+void DecipherPanel::previewChallenge() {
+  const auto request = searchInputs();
+  auto payload = encodeChallenge(request);
+  if (challengeSource_) {
+    const auto &[plaintext, key] = *challengeSource_;
+    const auto offset = request.cribOffset;
+    if ((offset && !std::string_view(plaintext).substr(*offset).starts_with(request.crib)) ||
+        (!offset && plaintext.find(request.crib) == std::string::npos)) {
+      throw std::invalid_argument("The crib must match your plaintext at that position");
+    }
+    if (!std::ranges::equal(request.rings, std::span(key.rings).first<rotorCount>())) {
+      throw std::invalid_argument("The challenge rings must match your message key");
+    }
+    constexpr std::array fixed{0, 1, 2};
+    const auto models = std::span(key.rotorTypes).first<rotorCount>();
+    if ((request.rotors == RotorScope::Fixed && !std::ranges::equal(models, fixed)) ||
+        (request.rotors == RotorScope::FirstThree && std::ranges::max(models) >= 3)) {
+      throw std::invalid_argument("Choose a rotor scope that includes your message key");
+    }
+    if (request.reflectors != ReflectorScope::Both &&
+        request.reflectors != (key.reflectorIndex == 1 ? ReflectorScope::B : ReflectorScope::C)) {
+      throw std::invalid_argument("Choose a reflector scope that includes your message key");
+    }
+    if (!std::ranges::all_of(request.knownLeads, [&](enigma::PlugPair lead) {
+          return hasLead(key.plugPairs, lead);
+        }) || (request.plugboard == PlugboardMode::Known &&
+               request.knownLeads.size() != key.plugPairs.size())) {
+      throw std::invalid_argument("Match the message pairs, or use Known leads to share a subset");
+    }
+  }
+  sharePreview_ = std::move(payload);
+  shareStatus_.clear();
 }
 
 void DecipherPanel::clearPreview(bool both) {
@@ -213,6 +402,16 @@ void DecipherPanel::clearPreview(bool both) {
     candidates_.clear();
     progress_ = {};
     selected_ = 0;
+    submittedSetup_ = {};
+    searchOutcome_.clear();
+  }
+}
+
+void DecipherPanel::clearForEdit() {
+  const bool editingCiphertext = focus_ == Ciphertext;
+  clearPreview(editingCiphertext);
+  if (editingCiphertext) {
+    challengeSource_.reset();
   }
 }
 
@@ -239,7 +438,7 @@ void DecipherPanel::edit(std::string_view text) {
     if (accepted != 0) {
       if (value.size() == limit) {
         if (value != fields_[focus_]) {
-          clearPreview(focus_ == Ciphertext);
+          clearForEdit();
           fields_[focus_] = std::move(value);
         }
         replace_ = false;
@@ -252,7 +451,7 @@ void DecipherPanel::edit(std::string_view text) {
   }
   if (!value.empty() || !replace_) {
     if (value != fields_[focus_]) {
-      clearPreview(focus_ == Ciphertext);
+      clearForEdit();
       fields_[focus_] = std::move(value);
     }
     replace_ = false;
@@ -275,12 +474,8 @@ void DecipherPanel::run(bool step) {
       return;
     }
 
-    auto request = parseSearch(
-        fields_[Ciphertext], fields_[Crib], fields_[SearchRings],
-        fields_[Offset], boardMode_,
-        boardMode_ == PlugboardMode::Unknown ? "" : fields_[SearchLeads]);
-    request.rotors = rotorScope_;
-    request.reflectors = reflectorScope_;
+    auto request = searchInputs();
+    submittedSetup_ = describeSearch(request);
     cribLength_ = fields_[Crib].size();
     pausedAtCheckpoint_ = false;
     {
@@ -382,12 +577,8 @@ bool DecipherPanel::update() {
     candidates_ = std::move(result.candidates);
     running_ = false;
     pausedAtCheckpoint_ = false;
-    if (result.status == SearchStatus::Complete && candidates_.empty()) {
-      status_ = progress_.viableAlignments == 0 ? "No viable crib positions"
-                                                : "No match in this search";
-    } else {
-      status_ = statusText(result.status);
-    }
+    status_.clear();
+    searchOutcome_ = searchOutcome(result);
     changed = true;
   } else if (!pendingError_.empty()) {
     running_ = false;
@@ -423,6 +614,22 @@ std::optional<bool> DecipherPanel::handle(const InputEvent &event,
       open_ = true;
       return true;
     }
+    if (click && session.input().size() >= 2 &&
+        hit(makeLayout(width, height, session.rotorCount()).createChallenge)) {
+      open_ = true;
+      if (running_) {
+        worker_.request_stop();
+        worker_.join();
+        update();
+      }
+      searchMode_ = true;
+      try {
+        createChallenge(session);
+      } catch (const std::exception &error) {
+        status_ = error.what();
+      }
+      return true;
+    }
     return std::nullopt;
   }
   if (event.type == EventType::WindowClose ||
@@ -434,6 +641,18 @@ std::optional<bool> DecipherPanel::handle(const InputEvent &event,
   const bool press = key && event.action == GLFW_PRESS;
   const bool control = (static_cast<unsigned>(event.mods) &
                         static_cast<unsigned>(GLFW_MOD_CONTROL)) != 0;
+  if (!sharePreview_.empty()) {
+    if ((click && hit(layout.shareClose())) || (press && event.key == GLFW_KEY_ESCAPE)) {
+      sharePreview_.clear();
+      return true;
+    }
+    if ((click && hit(layout.shareCopy())) || (press && control && event.key == GLFW_KEY_C)) {
+      const bool copied = platform.setClipboard && platform.setClipboard(sharePreview_);
+      shareStatus_ = copied ? "Challenge copied" : "Could not copy the challenge. Try again.";
+      return true;
+    }
+    return event.type == EventType::CursorPos;
+  }
   if ((click && hit(layout.back())) ||
       (press && event.key == GLFW_KEY_ESCAPE)) {
     worker_.request_stop();
@@ -444,8 +663,8 @@ std::optional<bool> DecipherPanel::handle(const InputEvent &event,
   if ((press && control && event.key == GLFW_KEY_C) ||
       (click && hit(layout.copy()))) {
     if (!plaintext().empty()) {
-      platform.setClipboard(plaintext());
-      status_ = "Plaintext copied";
+      const bool copied = platform.setClipboard && platform.setClipboard(plaintext());
+      status_ = copied ? "Plaintext copied" : "Could not copy plaintext";
     }
     return true;
   }
@@ -496,7 +715,7 @@ std::optional<bool> DecipherPanel::handle(const InputEvent &event,
   }
   if (key && event.key == GLFW_KEY_BACKSPACE) {
     if (!fields_[focus_].empty()) {
-      clearPreview(focus_ == Ciphertext);
+      clearForEdit();
       if (replace_) {
         fields_[focus_].clear();
       } else {
@@ -527,6 +746,22 @@ std::optional<bool> DecipherPanel::handle(const InputEvent &event,
   } else if (searchMode_ && hit(layout.challenge())) {
     try {
       loadChallenge();
+    } catch (const std::exception &error) {
+      status_ = error.what();
+    }
+  } else if (searchMode_ && hit(layout.share())) {
+    try {
+      previewChallenge();
+    } catch (const std::exception &error) {
+      status_ = error.what();
+    }
+  } else if (searchMode_ && hit(layout.import())) {
+    try {
+      if (!platform.getClipboard) {
+        throw std::invalid_argument("Clipboard is unavailable");
+      }
+      loadSearch(decodeChallenge(platform.getClipboard()));
+      status_ = "Challenge imported. Run or step to find its key.";
     } catch (const std::exception &error) {
       status_ = error.what();
     }
@@ -604,6 +839,8 @@ void DecipherPanel::draw(DrawList &draw, const Assets &assets, Vector2 cursor,
          selection(searchMode_));
   if (searchMode_) {
     button(draw, ui, layout.challenge(), "Try challenge", cursor, !running_);
+    button(draw, ui, layout.share(), "Preview share", cursor, !running_);
+    button(draw, ui, layout.import(), "Import challenge", cursor, !running_);
   }
   draw.addBox(layout.form, panel);
   draw.addBox(layout.results, panel);
@@ -661,6 +898,9 @@ void DecipherPanel::draw(DrawList &draw, const Assets &assets, Vector2 cursor,
     field(SearchLeads, layout.leads(true), "Plugboard pairs (AZ BY)", true,
           boardMode_ == PlugboardMode::Unknown ? "Click to enter known pairs" : "",
           boardMode_ == PlugboardMode::Unknown);
+    draw.addText(ui, boardHelp[boardIndex(boardMode_)],
+                 {layout.form.x + 16, bottom(layout.leads(true)) + 7},
+                 type::control, muted);
   } else {
     field(Start, layout.start(), "Starting windows (3-5 letters)");
     field(Rings, layout.rings(false), "Rings (01-26, left to right)");
@@ -684,24 +924,35 @@ void DecipherPanel::draw(DrawList &draw, const Assets &assets, Vector2 cursor,
   const float resultX = layout.results.x + 16;
   draw.addText(ui, searchMode_ ? "Bombe results" : "Plaintext", {resultX, 156},
                type::section);
-  draw.addText(ui, status_, {resultX, 191}, type::body, amber);
+  const auto &status = searchMode_ && status_.empty() ? searchOutcome_ : status_;
+  draw.addText(ui, status, {resultX, searchMode_ ? 180.0F : 191.0F},
+               searchMode_ ? type::control : type::body, amber);
   if (searchMode_) {
+    draw.addText(ui, submittedSetup_[0], {resultX, 201}, type::caption, foreground);
+    draw.addText(ui, submittedSetup_[1], {resultX, 218}, type::caption, muted);
     const float drumsRight = right(layout.results) - 20;
     const float drumsWidth = 230;
     const float drumsX = drumsRight - drumsWidth;
-    const float drumsY = 215;
+    const float drumsY = 233;
     const float drumsHeight = 77;
 
-    draw.addText(mono, std::to_string(progress_.viableAlignments) + "/" +
-                           std::to_string(progress_.alignments) + " viable positions",
-                 {resultX, 222}, type::caption, muted);
-    draw.addText(mono, std::to_string(progress_.settingsChecked) + "/" +
-                           std::to_string(progress_.totalSettings) + " checked",
-                 {resultX, 241}, type::caption, muted);
-    draw.addText(mono, std::to_string(candidates_.size()) +
-                           (candidates_.size() == 1 ? " match" : " matches"),
-                 {resultX, 260}, type::caption, candidates_.empty() ? muted : amber);
-    const Rectangle meter{resultX, 283, drumsX - resultX - 14, 4};
+    if (progress_.alignments > 0) {
+      draw.addText(mono, std::to_string(progress_.viableAlignments) + "/" +
+                             std::to_string(progress_.alignments) + " viable positions",
+                   {resultX, 237}, type::caption, muted);
+      draw.addText(mono, std::to_string(progress_.settingsChecked) + "/" +
+                             std::to_string(progress_.totalSettings) + " settings",
+                   {resultX, 255}, type::caption, muted);
+      auto matches = std::to_string(candidates_.size()) +
+                     (candidates_.size() == 1 ? " match" : " matches");
+      if (progress_.work > progress_.settingsChecked) {
+        matches += " · " + std::to_string(progress_.work - progress_.settingsChecked) +
+                   " plug tests";
+      }
+      draw.addText(mono, matches, {resultX, 273}, type::caption,
+                   candidates_.empty() ? muted : amber);
+    }
+    const Rectangle meter{resultX, 295, drumsX - resultX - 14, 4};
     draw.addRectangle(meter, border);
     if (progress_.totalSettings > 0) {
       auto fill = meter;
@@ -781,18 +1032,18 @@ void DecipherPanel::draw(DrawList &draw, const Assets &assets, Vector2 cursor,
                             std::to_string(candidates_.size());
     draw.addCenteredText(ui, matchLabel,
                          {matchLabelX, center(layout.previous()).y}, type::control);
-    draw.addText(mono, formatProfile(match->settings), {resultX, 340}, type::body);
+    draw.addText(mono, formatProfile(match->settings), {resultX, 346}, type::body);
     draw.addText(mono, "Start " + formatStarts(match->settings) + "  /  Rings " +
                            formatRings(match->settings),
-                 {resultX, 362}, type::control);
+                 {resultX, 367}, type::control);
     const auto leads = formatLeads(match->settings.plugPairs);
     draw.addText(mono, "Leads " + (leads.empty() ? std::string("none") : leads),
-                 {resultX, 383}, type::control);
+                 {resultX, 387}, type::control);
     draw.addText(mono, "Crib position " + std::to_string(match->cribOffset + 1),
-                 {resultX, 405}, type::control, muted);
+                 {resultX, 407}, type::control, muted);
     if (!match->unresolvedSockets.empty()) {
       draw.addText(mono, "Assumed unplugged " + match->unresolvedSockets,
-                   {resultX, 425}, type::caption, muted);
+                   {resultX, 426}, type::caption, muted);
     }
   }
   if (searchMode_) {
@@ -812,6 +1063,9 @@ void DecipherPanel::draw(DrawList &draw, const Assets &assets, Vector2 cursor,
                {layout.body.x, ui.centeredLineTop(static_cast<float>(height) - 22,
                                                  type::control)},
                type::control, muted);
+  if (!sharePreview_.empty()) {
+    drawChallengePreview(draw, assets, layout, cursor, sharePreview_, shareStatus_);
+  }
 }
 
 } // namespace bombe

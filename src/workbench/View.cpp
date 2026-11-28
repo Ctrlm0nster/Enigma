@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <filesystem>
 #include <iostream>
 #include <span>
@@ -179,6 +180,8 @@ void drawMessage(const Session &session, const Layout &layout,
                                                     type::section);
   drawList.addText(assets.ui, "Message", {bounds.x + 18, headingY},
                    type::section);
+  button(assets.ui, layout.createChallenge, "Create challenge", cursor,
+         drawList, session.input().size() >= 2);
   button(assets.ui, layout.paste, "Paste", cursor, drawList,
          session.input().size() < messageLimit);
   button(assets.ui, layout.clear, "Clear", cursor, drawList,
@@ -652,17 +655,51 @@ bool loadFontWithFallback(FontAtlas &atlas, const std::string &root,
   return false;
 }
 
-Assets loadAssets(VulkanRenderer &renderer, const std::string &assetDir) {
+namespace {
+
+int scaledFontSize(int baseSize, float dpiScale) {
+  const float clamped = std::clamp(dpiScale, 1.0F, 4.0F);
+  return std::max(1, static_cast<int>(std::lround(static_cast<float>(baseSize) *
+                                                  clamped)));
+}
+
+void uploadAtlas(VulkanRenderer &renderer, FontAtlas &atlas) {
+  if (!atlas.bitmap().empty()) {
+    atlas.setTextureId(renderer.createTexture(
+        atlas.bitmap().data(), atlas.atlasWidth(), atlas.atlasHeight(), false,
+        true));
+  }
+}
+
+void destroyFontTextures(VulkanRenderer &renderer, const Assets &assets) {
+  if (assets.title.textureId() != 0) {
+    renderer.destroyTexture(assets.title.textureId());
+  }
+  if (assets.ui.textureId() != 0) {
+    renderer.destroyTexture(assets.ui.textureId());
+  }
+  if (assets.mono.textureId() != 0) {
+    renderer.destroyTexture(assets.mono.textureId());
+  }
+}
+
+} // namespace
+
+Assets loadAssets(VulkanRenderer &renderer, const std::string &assetDir,
+                  float dpiScale) {
   const std::string root =
       (assetDir.empty() ? resolveAssetDirectory() : assetDir) + "/";
 
   Assets assets{};
   const bool titleOk = loadFontWithFallback(
-      assets.title, root, "InstrumentSerif-Regular.ttf", 64);
+      assets.title, root, "InstrumentSerif-Regular.ttf",
+      scaledFontSize(64, dpiScale));
   const bool uiOk = loadFontWithFallback(
-      assets.ui, root, "Montserrat-Medium.ttf", 48, controlGlyphs);
+      assets.ui, root, "Montserrat-Medium.ttf",
+      scaledFontSize(48, dpiScale), controlGlyphs);
   const bool monoOk = loadFontWithFallback(
-      assets.mono, root, "JetBrainsMono-Medium.ttf", 44, controlGlyphs);
+      assets.mono, root, "JetBrainsMono-Medium.ttf",
+      scaledFontSize(44, dpiScale), controlGlyphs);
 
   if (!titleOk && !uiOk && !monoOk) {
     std::cerr << "Fatal: No font faces could be loaded from " << root
@@ -672,20 +709,14 @@ Assets loadAssets(VulkanRenderer &renderer, const std::string &assetDir) {
   }
   assets.fontsLoaded = true;
 
-  if (titleOk && !assets.title.bitmap().empty()) {
-    assets.title.setTextureId(renderer.createTexture(
-        assets.title.bitmap().data(), assets.title.atlasWidth(),
-        assets.title.atlasHeight(), false, true));
+  if (titleOk) {
+    uploadAtlas(renderer, assets.title);
   }
-  if (uiOk && !assets.ui.bitmap().empty()) {
-    assets.ui.setTextureId(renderer.createTexture(
-        assets.ui.bitmap().data(), assets.ui.atlasWidth(),
-        assets.ui.atlasHeight(), false, true));
+  if (uiOk) {
+    uploadAtlas(renderer, assets.ui);
   }
-  if (monoOk && !assets.mono.bitmap().empty()) {
-    assets.mono.setTextureId(renderer.createTexture(
-        assets.mono.bitmap().data(), assets.mono.atlasWidth(),
-        assets.mono.atlasHeight(), false, true));
+  if (monoOk) {
+    uploadAtlas(renderer, assets.mono);
   }
 
   const auto photo = decodeJpeg(root + "Enigma-Imperial-War-Museum.jpg");
@@ -702,16 +733,48 @@ Assets loadAssets(VulkanRenderer &renderer, const std::string &assetDir) {
   return assets;
 }
 
+bool reloadFontAtlases(VulkanRenderer &renderer, Assets &assets, float dpiScale,
+                       const std::string &assetDir) {
+  const std::string root =
+      (assetDir.empty() ? resolveAssetDirectory() : assetDir) + "/";
+
+  FontAtlas nextTitle;
+  FontAtlas nextUi;
+  FontAtlas nextMono;
+  const bool titleOk = loadFontWithFallback(
+      nextTitle, root, "InstrumentSerif-Regular.ttf",
+      scaledFontSize(64, dpiScale));
+  const bool uiOk = loadFontWithFallback(
+      nextUi, root, "Montserrat-Medium.ttf",
+      scaledFontSize(48, dpiScale), controlGlyphs);
+  const bool monoOk = loadFontWithFallback(
+      nextMono, root, "JetBrainsMono-Medium.ttf",
+      scaledFontSize(44, dpiScale), controlGlyphs);
+
+  if (!titleOk && !uiOk && !monoOk) {
+    return false;
+  }
+
+  destroyFontTextures(renderer, assets);
+
+  if (titleOk) {
+    uploadAtlas(renderer, nextTitle);
+    assets.title = std::move(nextTitle);
+  }
+  if (uiOk) {
+    uploadAtlas(renderer, nextUi);
+    assets.ui = std::move(nextUi);
+  }
+  if (monoOk) {
+    uploadAtlas(renderer, nextMono);
+    assets.mono = std::move(nextMono);
+  }
+  assets.fontsLoaded = true;
+  return true;
+}
+
 void unloadAssets(VulkanRenderer &renderer, const Assets &assets) {
-  if (assets.title.textureId() != 0) {
-    renderer.destroyTexture(assets.title.textureId());
-  }
-  if (assets.ui.textureId() != 0) {
-    renderer.destroyTexture(assets.ui.textureId());
-  }
-  if (assets.mono.textureId() != 0) {
-    renderer.destroyTexture(assets.mono.textureId());
-  }
+  destroyFontTextures(renderer, assets);
   if (assets.photoTextureId != 0) {
     renderer.destroyTexture(assets.photoTextureId);
   }

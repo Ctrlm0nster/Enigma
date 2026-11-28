@@ -2,6 +2,7 @@
 #include "workbench/AudioEngine.hpp"
 #include "workbench/DrawCommand.hpp"
 #include "workbench/Input.hpp"
+#include "workbench/InputDispatch.hpp"
 #include "workbench/Layout.hpp"
 #include "workbench/Session.hpp"
 #include "workbench/View.hpp"
@@ -9,8 +10,11 @@
 
 #include <GLFW/glfw3.h>
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <string_view>
 #include <vector>
 
 namespace workbench {
@@ -19,17 +23,24 @@ struct EventQueue {
   std::vector<InputEvent> events;
   Vector2 lastCursorPos{};
   bool damaged{true};
-  int windowWidth{1320};
-  int windowHeight{840};
-  int fbWidth{1320};
-  int fbHeight{840};
+  int fbWidth{defaultWidth};
+  int fbHeight{defaultHeight};
+  float dpiScale{1.0F};
+  bool dpiChanged{false};
   bool ctrlDown{false};
 };
 
 } // namespace workbench
 
-int main() {
+int main(int argc, char **argv) {
   using namespace workbench;
+
+  bool smokeTest = false;
+  for (int i = 1; i < argc; ++i) {
+    if (std::string_view(argv[i]) == "--smoke-test") {
+      smokeTest = true;
+    }
+  }
 
   glfwSetErrorCallback([](int error, const char *description) {
     std::fprintf(stderr, "GLFW error [%d]: %s\n", error,
@@ -51,7 +62,7 @@ int main() {
   glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
   GLFWwindow *window =
-      glfwCreateWindow(1320, 840, "Enigma Workbench", nullptr, nullptr);
+      glfwCreateWindow(defaultWidth, defaultHeight, "Enigma Workbench", nullptr, nullptr);
   if (!window) {
     std::fputs("Enigma Workbench could not open a graphics window.\n", stderr);
     glfwTerminate();
@@ -62,8 +73,16 @@ int main() {
                           GLFW_DONT_CARE);
 
   EventQueue queue{};
-  glfwGetWindowSize(window, &queue.windowWidth, &queue.windowHeight);
+  int windowWidth = 0;
+  int windowHeight = 0;
+  glfwGetWindowSize(window, &windowWidth, &windowHeight);
   glfwGetFramebufferSize(window, &queue.fbWidth, &queue.fbHeight);
+  {
+    float xscale = 1.0F;
+    float yscale = 1.0F;
+    glfwGetWindowContentScale(window, &xscale, &yscale);
+    queue.dpiScale = std::max(xscale, yscale);
+  }
   glfwSetWindowUserPointer(window, &queue);
 
   glfwSetKeyCallback(window, [](GLFWwindow *w, int key, int scancode, int action,
@@ -108,13 +127,19 @@ int main() {
                          q->lastCursorPos, 0, 0});
   });
 
+  glfwSetScrollCallback(window, [](GLFWwindow *w, double, double yoffset) {
+    auto *q = static_cast<EventQueue *>(glfwGetWindowUserPointer(w));
+    if (q) {
+      q->events.push_back({.type = EventType::Scroll,
+                           .cursor = q->lastCursorPos, .scrollY = yoffset});
+    }
+  });
+
   glfwSetWindowSizeCallback(window, [](GLFWwindow *w, int width, int height) {
     auto *q = static_cast<EventQueue *>(glfwGetWindowUserPointer(w));
     if (!q) {
       return;
     }
-    q->windowWidth = width;
-    q->windowHeight = height;
     q->events.push_back({EventType::WindowResize, 0, 0, 0, 0, 0, 0, {},
                          width, height});
   });
@@ -129,6 +154,20 @@ int main() {
     q->fbHeight = height;
     q->damaged = true;
   });
+
+  glfwSetWindowContentScaleCallback(
+      window, [](GLFWwindow *w, float xscale, float yscale) {
+        auto *q = static_cast<EventQueue *>(glfwGetWindowUserPointer(w));
+        if (!q) {
+          return;
+        }
+        const float nextScale = std::max(xscale, yscale);
+        if (std::abs(nextScale - q->dpiScale) > 0.01F) {
+          q->dpiScale = nextScale;
+          q->dpiChanged = true;
+          q->damaged = true;
+        }
+      });
 
   glfwSetWindowRefreshCallback(window, [](GLFWwindow *w) {
     auto *q = static_cast<EventQueue *>(glfwGetWindowUserPointer(w));
@@ -153,7 +192,7 @@ int main() {
     return EXIT_FAILURE;
   }
 
-  const Assets assets = loadAssets(renderer);
+  Assets assets = loadAssets(renderer, "", queue.dpiScale);
   if (!assets.fontsLoaded) {
     std::fputs("Enigma Workbench could not load any fonts.\n", stderr);
     renderer.shutdown();
@@ -169,14 +208,15 @@ int main() {
   DrawList drawList;
   bool shouldClose = false;
 
-  Layout layout =
-      makeLayout(queue.windowWidth, queue.windowHeight, session.rotorCount());
+  Layout layout = makeLayout(windowWidth, windowHeight, session.rotorCount());
 
   PlatformContext platform{
       .setClipboard =
           [window](std::string_view text) {
             std::string nullTerminated(text);
+            glfwGetError(nullptr);
             glfwSetClipboardString(window, nullTerminated.c_str());
+            return glfwGetError(nullptr) == GLFW_NO_ERROR;
           },
       .getClipboard =
           [window]() -> std::string {
@@ -187,7 +227,14 @@ int main() {
   queue.damaged = true;
 
   int exitCode = EXIT_SUCCESS;
+  int smokeFramesRemaining = smokeTest ? 3 : 0;
   while (!glfwWindowShouldClose(window) && !shouldClose) {
+    if (queue.dpiChanged) {
+      queue.dpiChanged = false;
+      reloadFontAtlases(renderer, assets, queue.dpiScale);
+      queue.damaged = true;
+    }
+
     std::vector<InputEvent> currentEvents;
     currentEvents.swap(queue.events);
 
@@ -195,20 +242,8 @@ int main() {
     queue.damaged = false;
 
     for (const auto &event : currentEvents) {
-      if (!state.photoOpen && !state.presetsOpen) {
-        const auto rotorCount = session.rotorCount();
-        if (const auto handled = decipher.handle(event, platform, session,
-                                                  queue.windowWidth, queue.windowHeight)) {
-          if (session.rotorCount() != rotorCount) {
-            layout = makeLayout(queue.windowWidth, queue.windowHeight, session.rotorCount());
-          }
-          needRedraw |= *handled;
-          continue;
-        }
-      }
-      if (handleEvent(session, layout, state, event, platform, shouldClose, &audio)) {
-        needRedraw = true;
-      }
+      needRedraw |= dispatchInput(event, platform, session, layout, state, decipher,
+                                  assets.mono, shouldClose, &audio);
     }
 
     if (shouldClose) {
@@ -229,25 +264,36 @@ int main() {
         drawList.clear();
         if (!decipher.isOpen()) {
           drawWorkbench(session, layout, assets, state, queue.lastCursorPos,
-                        drawList, queue.windowWidth, queue.windowHeight, &audio);
+                        drawList, layout.screenWidth, layout.screenHeight, &audio);
         }
         if (!state.photoOpen) {
           const auto cursor = state.presetsOpen ? Vector2{-1, -1} : queue.lastCursorPos;
-          decipher.draw(drawList, assets, cursor, queue.windowWidth,
-                        queue.windowHeight);
+          decipher.draw(drawList, assets, cursor, layout.screenWidth,
+                        layout.screenHeight);
         }
-        renderer.renderDrawList(drawList, queue.windowWidth, queue.windowHeight);
+        renderer.renderDrawList(drawList, layout.screenWidth, layout.screenHeight);
         if (!renderer.endFrame()) {
           exitCode = EXIT_FAILURE;
           break;
         }
         queue.damaged = renderer.needsRedraw();
+        if (smokeTest) {
+          if (--smokeFramesRemaining <= 0) {
+            shouldClose = true;
+            break;
+          }
+          queue.damaged = true;
+        }
       } else if (renderer.hasFailed()) {
         exitCode = EXIT_FAILURE;
         break;
       } else {
         queue.damaged = true;
       }
+    }
+
+    if (shouldClose) {
+      break;
     }
 
     if (queue.events.empty()) {

@@ -282,3 +282,50 @@ TEST_CASE("Bombe rejects invalid input and conflicting leads", "[bombe]") {
   request.crib = "AAAA";
   CHECK_THROWS_AS(bombe::search(request), std::invalid_argument);
 }
+
+TEST_CASE("Challenge text carries only valid public Bombe inputs", "[bombe]") {
+  using namespace bombe;
+  auto request = demonstrationSearch(PlugboardMode::Partial);
+  request.knownLeads = {{0, 25}};
+  request.rotors = RotorScope::FirstFive;
+  request.reflectors = ReflectorScope::Both;
+
+  const auto payload = encodeChallenge(request);
+  std::string clipboard;
+  for (const char character : payload) {
+    if (character == '\n') {
+      clipboard += '\r';
+    }
+    clipboard += character;
+  }
+  clipboard += "\r\n";
+  CHECK(encodeChallenge(decodeChallenge(clipboard)) == payload);
+  CHECK(payload.find(message) == std::string::npos);
+  CHECK(payload.find("Pairs=AZ") != std::string::npos);
+  CHECK(payload.find("Start=") == std::string::npos);
+
+  CHECK_THROWS_AS(decodeChallenge(payload + "\nStart=ADV"), std::invalid_argument);
+  CHECK_THROWS_AS(decodeChallenge(payload + " AB"), std::invalid_argument);
+  CHECK_THROWS_AS(decodeChallenge(payload + std::string(1024, 'A')), std::invalid_argument);
+  CHECK_THROWS_AS(decodeChallenge("ENIGMA-CHALLENGE/2\n"), std::invalid_argument);
+
+  request.cribOffset.reset();
+  request.plugboard = PlugboardMode::Unknown;
+  CHECK_THROWS_AS(encodeChallenge(request), std::invalid_argument);
+  request.knownLeads.clear();
+  const auto hidden = decodeChallenge(encodeChallenge(request));
+  CHECK_FALSE(hidden.cribOffset.has_value());
+  CHECK(hidden.knownLeads.empty());
+  CHECK(hidden.plugboard == PlugboardMode::Unknown);
+
+  request.plugboard = PlugboardMode::Known;
+  const auto unplugged = decodeChallenge(encodeChallenge(request));
+  CHECK(unplugged.plugboard == PlugboardMode::Known);
+  CHECK(unplugged.knownLeads.empty());
+
+  request.cribOffset = request.ciphertext.size();
+  CHECK_THROWS_AS(encodeChallenge(request), std::invalid_argument);
+  request.cribOffset = 0;
+  request.crib = std::string(message);
+  CHECK_THROWS_AS(encodeChallenge(request), std::invalid_argument);
+}

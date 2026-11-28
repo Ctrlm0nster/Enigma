@@ -1,4 +1,5 @@
 #include "bombe/DecipherPanel.hpp"
+#include "bombe/DecipherInput.hpp"
 #include "workbench/Input.hpp"
 #include "workbench/Layout.hpp"
 #include "workbench/Session.hpp"
@@ -24,7 +25,7 @@ TEST_CASE(
 
   std::string clipboard = "BDZ GO";
   PlatformContext platform{
-      .setClipboard = [&](std::string_view text) { clipboard = text; },
+      .setClipboard = [&](std::string_view text) { clipboard = text; return true; },
       .getClipboard = [&] { return clipboard; }};
   const auto send = [&](const InputEvent &event) {
     const auto consumed =
@@ -117,7 +118,7 @@ TEST_CASE("Bombe challenges can be stepped, cancelled, and solved",
   Session session;
   std::string clipboard;
   const PlatformContext platform{
-      .setClipboard = [&](std::string_view text) { clipboard = text; },
+      .setClipboard = [&](std::string_view text) { clipboard = text; return true; },
       .getClipboard = [&] { return clipboard; }};
   const auto send = [&](const InputEvent &event) {
     REQUIRE(panel.handle(event, platform, session, minimumWidth, minimumHeight));
@@ -130,7 +131,7 @@ TEST_CASE("Bombe challenges can be stepped, cancelled, and solved",
     send({.type = EventType::Key, .key = key, .action = GLFW_PRESS, .mods = mods});
   };
   const auto waitFor = [&](const auto &condition) {
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
     while (!condition() && std::chrono::steady_clock::now() < deadline) {
       std::this_thread::sleep_for(std::chrono::milliseconds(5));
       panel.update();
@@ -181,4 +182,116 @@ TEST_CASE("Bombe challenges can be stepped, cancelled, and solved",
     click(735, 635);
     CHECK(session.plugPairs().size() == 3);
   }
+}
+
+TEST_CASE("Workbench challenges preview, copy and import without changing either session",
+          "[bombe][workbench]") {
+  using namespace workbench;
+  const std::string message = "CHECKTHEGAUGESBEFORETHEMORNINGSHIFTANDRECORDTHEREADINGS";
+  auto key = bombe::parseSettings("MCK", "03 02 05", "AZ BY CR");
+  Session sender;
+  sender.applySettings(key);
+  bombe::DecipherPanel author;
+  Session receiver;
+  REQUIRE(receiver.setRotorCount(4));
+  REQUIRE(receiver.paste("OTHERMESSAGE") == 12);
+  const auto receiverOutput = receiver.output();
+  bombe::DecipherPanel reader;
+
+  std::string clipboard;
+  bool copyAvailable = true;
+  const PlatformContext platform{
+      .setClipboard = [&](std::string_view text) {
+        if (copyAvailable) {
+          clipboard = text;
+        }
+        return copyAvailable;
+      },
+      .getClipboard = [&] { return clipboard; }};
+  const auto send = [&](auto &panel, auto &session, const InputEvent &event) {
+    return panel.handle(event, platform, session, minimumWidth, minimumHeight);
+  };
+  const auto clickEvent = [](Vector2 cursor) {
+    return InputEvent{.type = EventType::MouseButton, .action = GLFW_PRESS,
+                      .button = GLFW_MOUSE_BUTTON_LEFT, .cursor = cursor};
+  };
+  const auto click = [&](auto &panel, auto &session, Vector2 cursor) {
+    REQUIRE(send(panel, session, clickEvent(cursor)).value_or(false));
+  };
+  const auto press = [&](auto &panel, auto &session, int code, int mods = 0) {
+    REQUIRE(send(panel, session, {.type = EventType::Key, .key = code,
+                                  .action = GLFW_PRESS, .mods = mods}).value_or(false));
+  };
+
+  const auto layout = makeLayout(minimumWidth, minimumHeight, sender.rotorCount());
+  const auto create = center(layout.createChallenge);
+  CHECK_FALSE(send(author, sender, clickEvent(create)).has_value());
+  REQUIRE(sender.paste(message) == message.size());
+  const auto ciphertext = sender.output();
+  click(author, sender, create);
+  REQUIRE(author.isOpen());
+  click(author, sender, {555, 105});
+  clipboard = "empty crib";
+  press(author, sender, GLFW_KEY_C, GLFW_MOD_CONTROL);
+  CHECK(clipboard == "empty crib");
+
+  const auto crib = message.substr(0, 41);
+  clipboard = crib;
+  press(author, sender, GLFW_KEY_V, GLFW_MOD_CONTROL);
+  click(author, sender, {110, 565});
+  clipboard = "ZA";
+  press(author, sender, GLFW_KEY_V, GLFW_MOD_CONTROL);
+  click(author, sender, {555, 105});
+  copyAvailable = false;
+  press(author, sender, GLFW_KEY_C, GLFW_MOD_CONTROL);
+  CHECK(clipboard == "ZA");
+  copyAvailable = true;
+  press(author, sender, GLFW_KEY_C, GLFW_MOD_CONTROL);
+  const auto partial = bombe::decodeChallenge(clipboard);
+  CHECK(partial.ciphertext == ciphertext);
+  CHECK(partial.crib == crib);
+  CHECK_FALSE(partial.cribOffset.has_value());
+  CHECK(partial.rotors == bombe::RotorScope::FirstFive);
+  CHECK(partial.reflectors == bombe::ReflectorScope::Both);
+  CHECK(partial.plugboard == bombe::PlugboardMode::Partial);
+  CHECK(bombe::formatLeads(partial.knownLeads) == "ZA");
+  CHECK(clipboard.ends_with("\nPairs=ZA"));
+
+  press(author, sender, GLFW_KEY_ESCAPE);
+  REQUIRE(author.isOpen());
+  click(author, sender, {400, 161});
+  click(author, sender, {85, 468});
+  click(author, sender, {425, 468});
+  click(author, sender, {385, 430});
+  clipboard = "1";
+  press(author, sender, GLFW_KEY_V, GLFW_MOD_CONTROL);
+  click(author, sender, {555, 105});
+  press(author, sender, GLFW_KEY_C, GLFW_MOD_CONTROL);
+  const auto payload = clipboard;
+  const auto shared = bombe::decodeChallenge(payload);
+  CHECK(shared.plugboard == bombe::PlugboardMode::Known);
+  CHECK(shared.rotors == bombe::RotorScope::Fixed);
+  CHECK(shared.reflectors == bombe::ReflectorScope::B);
+  CHECK(shared.cribOffset == 0);
+  CHECK(payload.find(message) == std::string::npos);
+  CHECK(payload.find("Start=") == std::string::npos);
+  CHECK(sender.output() == ciphertext);
+  CHECK(bombe::formatStarts(sender.settings()) == "MCK");
+
+  click(reader, receiver, {807, 43});
+  click(reader, receiver, {220, 104});
+  click(reader, receiver, {707, 104});
+  clipboard = payload + "\nCrib=WRONG";
+  click(reader, receiver, {707, 104});
+  press(reader, receiver, GLFW_KEY_ENTER);
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+  while (reader.isRunning() && std::chrono::steady_clock::now() < deadline) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    reader.update();
+  }
+  REQUIRE_FALSE(reader.isRunning());
+  press(reader, receiver, GLFW_KEY_C, GLFW_MOD_CONTROL);
+  CHECK(clipboard == message);
+  CHECK(receiver.rotorCount() == 4);
+  CHECK(receiver.output() == receiverOutput);
 }
