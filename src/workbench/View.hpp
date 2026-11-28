@@ -49,7 +49,14 @@ bool loadFontWithFallback(FontAtlas &atlas, const std::string &root,
 /**
  * @brief Loads application fonts and texture assets and uploads them to the GPU.
  */
-Assets loadAssets(VulkanRenderer &renderer, const std::string &assetDir = "");
+Assets loadAssets(VulkanRenderer &renderer, const std::string &assetDir = "",
+                  float dpiScale = 1.0F);
+
+/**
+ * @brief Rebuilds font atlases at a new DPI scale and retires old font textures.
+ */
+bool reloadFontAtlases(VulkanRenderer &renderer, Assets &assets, float dpiScale,
+                       const std::string &assetDir = "");
 
 /**
  * @brief Unloads graphics and fonts from GPU memory upon exit.

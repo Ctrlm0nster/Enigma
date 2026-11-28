@@ -196,6 +196,7 @@ bool VulkanRenderer::init(GLFWwindow *window, bool enableValidation) {
 
   VkDescriptorPoolCreateInfo descriptorPoolInfo{};
   descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+  descriptorPoolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
   descriptorPoolInfo.maxSets = 64;
   descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
   descriptorPoolInfo.pPoolSizes = poolSizes.data();
@@ -1613,6 +1614,11 @@ void VulkanRenderer::destroyTexture(uint32_t textureId) {
       }
       if (it->second.memory != VK_NULL_HANDLE) {
         vkFreeMemory(device_, it->second.memory, nullptr);
+      }
+      if (descriptorPool_ != VK_NULL_HANDLE &&
+          it->second.descriptorSet != VK_NULL_HANDLE) {
+        vkFreeDescriptorSets(device_, descriptorPool_, 1,
+                             &it->second.descriptorSet);
       }
     }
     textures_.erase(it);

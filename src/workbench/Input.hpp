@@ -66,7 +66,7 @@ struct InputEvent {
 };
 
 struct PlatformContext {
-  std::function<void(std::string_view)> setClipboard;
+  std::function<bool(std::string_view)> setClipboard;
   std::function<std::string()> getClipboard;
 };
 

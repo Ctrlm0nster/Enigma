@@ -317,7 +317,7 @@ TEST_CASE("Input event pipeline processes keyboard, mouse, and modal priority",
   std::string clipboardStorage;
 
   PlatformContext platform{
-      .setClipboard = [&](std::string_view text) { clipboardStorage = text; },
+      .setClipboard = [&](std::string_view text) { clipboardStorage = text; return true; },
       .getClipboard = [&]() -> std::string { return clipboardStorage; }};
 
   SECTION("Typing converts lowercase to uppercase and steps cipher") {
@@ -575,7 +575,7 @@ TEST_CASE(
 
   VulkanRenderer uninitializedRenderer;
   // Should successfully rasterize fonts on CPU even if GPU renderer is not initialized
-  const Assets assets = loadAssets(uninitializedRenderer);
+  Assets assets = loadAssets(uninitializedRenderer);
   CHECK(assets.fontsLoaded);
   CHECK(assets.title.baseSize() == 64);
   CHECK(assets.ui.baseSize() == 48);
@@ -584,6 +584,16 @@ TEST_CASE(
   CHECK(assets.title.textureId() == 0);
   CHECK(assets.ui.textureId() == 0);
   CHECK(assets.mono.textureId() == 0);
+
+  const float logicalWidth = assets.ui.measure("ENIGMA", 24.0F).x;
+  REQUIRE(reloadFontAtlases(uninitializedRenderer, assets, 2.0F));
+  CHECK(assets.title.baseSize() == 128);
+  CHECK(assets.ui.baseSize() == 96);
+  CHECK(assets.mono.baseSize() == 88);
+  CHECK(std::abs(assets.ui.measure("ENIGMA", 24.0F).x - logicalWidth) < 1.0F);
+  CHECK_FALSE(reloadFontAtlases(uninitializedRenderer, assets, 1.5F,
+                                "invalid_non_existent_dir"));
+  CHECK(assets.ui.baseSize() == 96);
 }
 
 TEST_CASE("Kriegsmarine Enigma M4 and Greek Rotors stationary operation",

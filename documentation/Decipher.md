@@ -76,7 +76,9 @@ selecting a match shows its key on the drums.
 
 ## Search Telemetry and Results Analysis {#bombe_telemetry}
 
-The panel reports viable crib positions, settings checked, and verified matches. The progress bar tracks setting checks across the selected rotor and reflector combinations. The scrambler display identifies the current combination and crib position. Work and result limits appear in the status line.
+The results panel shows the submitted rotor scope, reflector, rings, crib position, and plugboard hints. It counts viable crib positions, settings checked, and verified matches. When the solver tests additional plugboard combinations, their count appears as **plug tests**. The progress bar tracks setting checks across the selected rotor and reflector combinations.
+
+**No viable positions** means every tested alignment put a crib letter against the same ciphertext letter. Check the crib and any pinned position. If all settings were checked with **No matches**, check the rings, rotor scope, reflector, and plugboard assumptions. At the **result limit**, try a longer crib or pin its position. At the **work limit**, narrow the rotor scope or pin the crib. Matches already found remain available if the search hits a limit or you cancel it.
 
 ### Inspecting Candidate Matches
 Browse matches as the solver verifies them:
@@ -88,6 +90,14 @@ Browse matches as the solver verifies them:
   - **Assumed unplugged sockets**: Sockets that did not participate in crib loops and are tentatively assumed unplugged.
 - The ciphertext and plaintext tapes highlight the selected crib in amber.
 - Click **Load key** to export the recovered key directly into the active Workbench session.
+
+## Create and Share a Challenge {#bombe_share}
+
+1. In the Workbench, encipher a message with at least two letters using three distinct rotors from I–V and reflector B or C. Click **Create challenge** in the message panel.
+2. Enter an excerpt of your plaintext in **Crib**. Leave **Crib position** blank to ask the solver to find it, or give its first letter's position. The ring settings carry over from the Workbench and are required to solve the challenge.
+3. Choose the rotor and reflector scopes to reveal how much the solver knows. Use **Unknown** to conceal all plugboard pairs, **Known leads** to share individual pairs, or **Known board** to share the complete board. **Copy rings & leads** fills in the complete board from the Workbench.
+4. Select **Preview share** to review the versioned challenge text. It contains the ciphertext, crib, rings, and selected hints. The remaining plaintext, starting windows, and any unrevealed settings stay private. Select **Copy challenge** and share the complete text.
+5. To solve a received challenge, copy its complete text and select **Import challenge** in **Decipher → Bombe search**. Run or step through the search when ready. Your Workbench message and machine settings stay in place until you explicitly load a recovered key.
 
 ## Command-Line Bombe CLI (`EnigmaBombe`) {#bombe_cli}
 

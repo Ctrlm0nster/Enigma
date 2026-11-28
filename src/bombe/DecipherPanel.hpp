@@ -49,7 +49,12 @@ private:
 
   void copySettings(enigma::MachineSettings settings);
   void loadChallenge();
+  void createChallenge(const workbench::Session &session);
+  void loadSearch(SearchRequest request);
+  SearchRequest searchInputs() const;
+  void previewChallenge();
   void clearPreview(bool both = false);
+  void clearForEdit();
   void edit(std::string_view text);
   void run(bool step = false);
   void togglePause();
@@ -72,6 +77,15 @@ private:
   int knownReflector_ = enigma::MachineSettings{}.reflectorIndex;
   std::string knownPlaintext_;
   std::string status_;
+  std::string searchOutcome_;
+  std::array<std::string, 2> submittedSetup_;
+  struct ChallengeSource {
+    std::string plaintext;
+    enigma::MachineSettings key;
+  };
+  std::optional<ChallengeSource> challengeSource_;
+  std::string sharePreview_;
+  std::string shareStatus_;
   SearchProgress progress_;
   std::vector<Candidate> candidates_;
   std::size_t selected_ = 0;

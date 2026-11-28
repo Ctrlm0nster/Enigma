@@ -21,10 +21,8 @@ constexpr int MouseButtonLeft = 0;
 void copyOutput(const Session &session, Status &status,
                 const PlatformContext &platform) {
   if (!session.output().empty()) {
-    if (platform.setClipboard) {
-      platform.setClipboard(session.output());
-    }
-    status.show("Ciphertext copied");
+    const bool copied = platform.setClipboard && platform.setClipboard(session.output());
+    status.show(copied ? "Ciphertext copied" : "Could not copy ciphertext");
   }
 }
 

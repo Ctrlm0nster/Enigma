@@ -296,6 +296,17 @@ sudo dnf install gcc-c++ cmake ninja-build vulkan-loader-devel \
                  libjpeg-turbo-devel alsa-lib-devel
 ```
 
+**Windows (MSVC + vcpkg + Vulkan SDK):**
+1. Install the [LunarG Vulkan SDK](https://vulkan.lunarg.com/sdk/home#windows) (provides `Vulkan::Vulkan` headers, loader, and `glslc`).
+2. Install Visual Studio 2022 (Desktop development with C++), CMake, and Ninja.
+3. Install `glfw3`, `freetype`, and `libjpeg-turbo` via [vcpkg](https://vcpkg.io/):
+```powershell
+vcpkg install glfw3:x64-windows freetype:x64-windows libjpeg-turbo:x64-windows
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release `
+  -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
+cmake --build build
+```
+
 ### Standard Build (Desktop Workbench + CLI + Tests)
 
 ```bash

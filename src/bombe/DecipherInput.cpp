@@ -2,6 +2,7 @@
 
 #include "Charactermap.hpp"
 
+#include <algorithm>
 #include <charconv>
 #include <memory>
 #include <span>
@@ -10,6 +11,85 @@
 
 namespace bombe {
 namespace {
+
+constexpr std::string_view challengeVersion = "ENIGMA-CHALLENGE/1";
+constexpr std::size_t challengeLimit = 1024;
+constexpr std::array rotorTokens{
+    std::pair{RotorScope::Fixed, "FIXED"},
+    std::pair{RotorScope::FirstThree, "I-III"},
+    std::pair{RotorScope::FirstFive, "I-V"}};
+constexpr std::array reflectorTokens{
+    std::pair{ReflectorScope::B, "B"}, std::pair{ReflectorScope::C, "C"},
+    std::pair{ReflectorScope::Both, "BOTH"}};
+constexpr std::array boardTokens{
+    std::pair{PlugboardMode::Unknown, "UNKNOWN"},
+    std::pair{PlugboardMode::Partial, "PARTIAL"},
+    std::pair{PlugboardMode::Known, "KNOWN"}};
+
+template <typename Value, std::size_t Size>
+std::string_view tokenFor(Value value,
+                          const std::array<std::pair<Value, const char *>, Size> &tokens) {
+  for (const auto &[option, name] : tokens) {
+    if (value == option) {
+      return name;
+    }
+  }
+  throw std::invalid_argument("Invalid challenge search option");
+}
+
+template <typename Value, std::size_t Size>
+Value optionFor(std::string_view token,
+                const std::array<std::pair<Value, const char *>, Size> &tokens) {
+  for (const auto &[option, name] : tokens) {
+    if (token == name) {
+      return option;
+    }
+  }
+  throw std::invalid_argument("Invalid challenge search option");
+}
+
+std::string_view readLine(std::string_view &text) {
+  const auto end = text.find('\n');
+  auto line = text.substr(0, end);
+  text.remove_prefix(end == std::string_view::npos ? text.size() : end + 1);
+  if (line.ends_with('\r')) {
+    line.remove_suffix(1);
+  }
+  return line;
+}
+
+std::string_view readField(std::string_view &text, std::string_view prefix) {
+  auto line = readLine(text);
+  if (!line.starts_with(prefix)) {
+    throw std::invalid_argument("Missing or unexpected challenge field");
+  }
+  line.remove_prefix(prefix.size());
+  return line;
+}
+
+void validateChallenge(const SearchRequest &request) {
+  const auto asciiLetters = [](std::string_view value) {
+    return !value.empty() && value.size() <= enigma::messageLimit &&
+           std::ranges::all_of(value, [](char ch) { return ch >= 'A' && ch <= 'Z'; });
+  };
+  if (!asciiLetters(request.ciphertext) || !asciiLetters(request.crib)) {
+    throw std::invalid_argument("Challenge text and crib need 1–240 letters A–Z");
+  }
+  if (request.crib.size() >= request.ciphertext.size()) {
+    throw std::invalid_argument("Choose a crib shorter than the message");
+  }
+  if (request.cribOffset &&
+      *request.cribOffset > request.ciphertext.size() - request.crib.size()) {
+    throw std::invalid_argument("Crib position is outside the ciphertext");
+  }
+  if (request.plugboard == PlugboardMode::Unknown && !request.knownLeads.empty()) {
+    throw std::invalid_argument("Choose Known leads or Known board to share pairs");
+  }
+  enigma::MachineSettings key;
+  std::ranges::copy(request.rings, key.rings.begin());
+  key.plugPairs = request.knownLeads;
+  enigma::makeMachine(key);
+}
 
 std::string_view nextToken(std::string_view &text,
                            std::string_view delimiters) {
@@ -111,6 +191,51 @@ SearchRequest parseSearch(std::string ciphertext, std::string crib,
   return request;
 }
 
+std::string encodeChallenge(const SearchRequest &request) {
+  validateChallenge(request);
+  std::string payload(challengeVersion);
+  payload += "\nCiphertext=" + request.ciphertext;
+  payload += "\nCrib=" + request.crib;
+  payload += "\nRings=" + formatRings(request.rings);
+  payload += "\nPosition=";
+  payload += request.cribOffset ? std::to_string(*request.cribOffset + 1) : "AUTO";
+  payload += "\nRotors=";
+  payload += tokenFor(request.rotors, rotorTokens);
+  payload += "\nReflector=";
+  payload += tokenFor(request.reflectors, reflectorTokens);
+  payload += "\nPlugboard=";
+  payload += tokenFor(request.plugboard, boardTokens);
+  payload += "\nPairs=" + formatLeads(request.knownLeads);
+  return payload;
+}
+
+SearchRequest decodeChallenge(std::string_view payload) {
+  if (payload.size() > challengeLimit) {
+    throw std::invalid_argument("Challenge text is too large");
+  }
+  if (readLine(payload) != challengeVersion) {
+    throw std::invalid_argument("Clipboard needs an ENIGMA-CHALLENGE/1 puzzle");
+  }
+  const auto ciphertext = readField(payload, "Ciphertext=");
+  const auto crib = readField(payload, "Crib=");
+  const auto rings = readField(payload, "Rings=");
+  const auto position = readField(payload, "Position=");
+  const auto rotors = optionFor(readField(payload, "Rotors="), rotorTokens);
+  const auto reflectors = optionFor(readField(payload, "Reflector="), reflectorTokens);
+  const auto board = optionFor(readField(payload, "Plugboard="), boardTokens);
+  const auto leads = readField(payload, "Pairs=");
+  if (!payload.empty() || position.empty()) {
+    throw std::invalid_argument("Unexpected challenge data");
+  }
+  auto request = parseSearch(std::string(ciphertext), std::string(crib), rings,
+                             position == "AUTO" ? std::string_view{} : position,
+                             board, leads);
+  request.rotors = rotors;
+  request.reflectors = reflectors;
+  validateChallenge(request);
+  return request;
+}
+
 std::string formatStarts(const enigma::MachineSettings &settings) {
   std::string text;
   for (std::size_t i = 0; i < settings.rotorCount; ++i) {
@@ -120,12 +245,16 @@ std::string formatStarts(const enigma::MachineSettings &settings) {
 }
 
 std::string formatRings(const enigma::MachineSettings &settings) {
+  return formatRings(std::span(settings.rings).first(settings.rotorCount));
+}
+
+std::string formatRings(std::span<const int> rings) {
   std::string text;
-  for (std::size_t i = 0; i < settings.rotorCount; ++i) {
+  for (const int offset : rings) {
     if (!text.empty()) {
       text += ' ';
     }
-    const int ring = settings.rings[i] + 1;
+    const int ring = offset + 1;
     if (ring < 10) {
       text += '0';
     }

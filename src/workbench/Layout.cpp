@@ -141,6 +141,8 @@ Layout makeLayout(int screenWidth, int screenHeight, std::size_t rotorCount) {
   layout.copy = {messageEdge - 143.0F, top + 9, 143.0F, 32};
   layout.clear = {layout.copy.x - 73, layout.copy.y, 63, layout.copy.height};
   layout.paste = {layout.clear.x - 74, layout.copy.y, 64, layout.copy.height};
+  layout.createChallenge = {layout.paste.x - 142, layout.copy.y, 132,
+                            layout.copy.height};
 
   const auto launcher = decipherLauncher(layout.content);
   layout.openPhoto = {right(launcher) + toolbarGap, launcher.y, photoWidth, toolbarHeight};

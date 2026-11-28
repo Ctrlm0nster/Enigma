@@ -9,8 +9,11 @@
 
 #include <GLFW/glfw3.h>
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <string_view>
 #include <vector>
 
 namespace workbench {
@@ -23,13 +26,22 @@ struct EventQueue {
   int windowHeight{840};
   int fbWidth{1320};
   int fbHeight{840};
+  float dpiScale{1.0F};
+  bool dpiChanged{false};
   bool ctrlDown{false};
 };
 
 } // namespace workbench
 
-int main() {
+int main(int argc, char **argv) {
   using namespace workbench;
+
+  bool smokeTest = false;
+  for (int i = 1; i < argc; ++i) {
+    if (std::string_view(argv[i]) == "--smoke-test") {
+      smokeTest = true;
+    }
+  }
 
   glfwSetErrorCallback([](int error, const char *description) {
     std::fprintf(stderr, "GLFW error [%d]: %s\n", error,
@@ -64,6 +76,12 @@ int main() {
   EventQueue queue{};
   glfwGetWindowSize(window, &queue.windowWidth, &queue.windowHeight);
   glfwGetFramebufferSize(window, &queue.fbWidth, &queue.fbHeight);
+  {
+    float xscale = 1.0F;
+    float yscale = 1.0F;
+    glfwGetWindowContentScale(window, &xscale, &yscale);
+    queue.dpiScale = std::max(xscale, yscale);
+  }
   glfwSetWindowUserPointer(window, &queue);
 
   glfwSetKeyCallback(window, [](GLFWwindow *w, int key, int scancode, int action,
@@ -130,6 +148,20 @@ int main() {
     q->damaged = true;
   });
 
+  glfwSetWindowContentScaleCallback(
+      window, [](GLFWwindow *w, float xscale, float yscale) {
+        auto *q = static_cast<EventQueue *>(glfwGetWindowUserPointer(w));
+        if (!q) {
+          return;
+        }
+        const float nextScale = std::max(xscale, yscale);
+        if (std::abs(nextScale - q->dpiScale) > 0.01F) {
+          q->dpiScale = nextScale;
+          q->dpiChanged = true;
+          q->damaged = true;
+        }
+      });
+
   glfwSetWindowRefreshCallback(window, [](GLFWwindow *w) {
     auto *q = static_cast<EventQueue *>(glfwGetWindowUserPointer(w));
     if (q) {
@@ -153,7 +185,7 @@ int main() {
     return EXIT_FAILURE;
   }
 
-  const Assets assets = loadAssets(renderer);
+  Assets assets = loadAssets(renderer, "", queue.dpiScale);
   if (!assets.fontsLoaded) {
     std::fputs("Enigma Workbench could not load any fonts.\n", stderr);
     renderer.shutdown();
@@ -176,7 +208,9 @@ int main() {
       .setClipboard =
           [window](std::string_view text) {
             std::string nullTerminated(text);
+            glfwGetError(nullptr);
             glfwSetClipboardString(window, nullTerminated.c_str());
+            return glfwGetError(nullptr) == GLFW_NO_ERROR;
           },
       .getClipboard =
           [window]() -> std::string {
@@ -187,7 +221,14 @@ int main() {
   queue.damaged = true;
 
   int exitCode = EXIT_SUCCESS;
+  int smokeFramesRemaining = smokeTest ? 3 : 0;
   while (!glfwWindowShouldClose(window) && !shouldClose) {
+    if (queue.dpiChanged) {
+      queue.dpiChanged = false;
+      reloadFontAtlases(renderer, assets, queue.dpiScale);
+      queue.damaged = true;
+    }
+
     std::vector<InputEvent> currentEvents;
     currentEvents.swap(queue.events);
 
@@ -242,6 +283,13 @@ int main() {
           break;
         }
         queue.damaged = renderer.needsRedraw();
+        if (smokeTest) {
+          if (--smokeFramesRemaining <= 0) {
+            shouldClose = true;
+          } else {
+            queue.damaged = true;
+          }
+        }
       } else if (renderer.hasFailed()) {
         exitCode = EXIT_FAILURE;
         break;

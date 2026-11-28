@@ -61,6 +61,7 @@ struct Layout {
   Rectangle reflectorButton; ///< Interactive reflector selector button.
   Rectangle photoViewer;    ///< Full photo modal window.
   Rectangle closePhoto;     ///< Close photo modal button.
+  Rectangle createChallenge; ///< Opens a challenge from the message.
   Rectangle paste;          ///< Paste clipboard button.
   Rectangle copy;           ///< Copy ciphertext button.
   Rectangle clear;          ///< Clear tape button.
